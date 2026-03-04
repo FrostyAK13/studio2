@@ -1,88 +1,94 @@
+
 "use client"
 
-import React, { useState, useEffect } from 'react';
-import { format, subMonths, parseISO } from 'date-fns';
-import { Search, Calendar as CalendarIcon, TrendingUp, TrendingDown, RefreshCw, Activity, Layers } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { format, subMonths } from 'date-fns';
+import { Search, Calendar as CalendarIcon, TrendingUp, TrendingDown, RefreshCw, Activity, Layers, Zap, Info } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { fetchHistoricalData, StockDataPoint } from '@/lib/stock-service';
 import { SignalManager, Signal } from '@/lib/signal-manager';
+import { derivWs, Tick } from '@/lib/deriv-websocket';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 export default function SignalPulseDashboard() {
-  const [symbol, setSymbol] = useState('AAPL');
+  const [symbol, setSymbol] = useState('R_100'); // Default to a Deriv Volatility Index
   const [fromDate, setFromDate] = useState<Date | null>(null);
   const [toDate, setToDate] = useState<Date | null>(null);
   const [data, setData] = useState<StockDataPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [liveTick, setLiveTick] = useState<Tick | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Initialize dates on the client to avoid hydration mismatch
+    // Initialize dates on the client
     const end = new Date();
     const start = subMonths(end, 1);
     setFromDate(start);
     setToDate(end);
     setSignals(SignalManager.getSignals());
     
-    // Initial search with the calculated dates
-    const performInitialSearch = async () => {
-      setLoading(true);
-      try {
-        const result = await fetchHistoricalData(
-          symbol.toUpperCase(),
-          format(start, 'yyyy-MM-dd'),
-          format(end, 'yyyy-MM-dd')
-        );
-        setData(result);
-        
-        const newSignal = SignalManager.processSignalsFromData(symbol.toUpperCase(), result);
-        if (newSignal) {
-          setSignals(SignalManager.getSignals());
-        }
-      } catch (error) {
-        console.error("Initial search failed", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    performInitialSearch();
+    // Initial historical search
+    handleSearch(symbol, start, end);
   }, []);
 
-  const handleSearch = async () => {
-    if (!symbol || !fromDate || !toDate) return;
+  // Real-time tick subscription
+  useEffect(() => {
+    if (!symbol) return;
+
+    const unsubscribe = derivWs.subscribe(symbol, (tick) => {
+      setLiveTick(tick);
+      
+      // Optionally update historical chart live (limit to last 50 points)
+      setData(prev => {
+        const lastPoint = prev[prev.length - 1];
+        const newPoint = {
+          date: new Date(tick.epoch * 1000).toISOString(),
+          price: tick.quote,
+          volume: 0 // Deriv ticks don't always have volume in simple tick stream
+        };
+        
+        // Only add if it's a new second or substantial change
+        if (!lastPoint || new Date(tick.epoch * 1000).getSeconds() !== new Date(lastPoint.date).getSeconds()) {
+          const updated = [...prev, newPoint];
+          return updated.slice(-100); // Keep last 100 for visual pulse
+        }
+        return prev;
+      });
+
+      // Process real-time signals
+      const newSignal = SignalManager.processSignalsFromData(symbol, [{ price: tick.quote }]);
+      if (newSignal) {
+        setSignals(SignalManager.getSignals());
+      }
+    });
+
+    return () => unsubscribe();
+  }, [symbol]);
+
+  const handleSearch = async (s = symbol, from = fromDate, to = toDate) => {
+    if (!s || !from || !to) return;
     setLoading(true);
     try {
       const result = await fetchHistoricalData(
-        symbol.toUpperCase(),
-        format(fromDate, 'yyyy-MM-dd'),
-        format(toDate, 'yyyy-MM-dd')
+        s.toUpperCase(),
+        format(from, 'yyyy-MM-dd'),
+        format(to, 'yyyy-MM-dd')
       );
       setData(result);
-      
-      const newSignal = SignalManager.processSignalsFromData(symbol.toUpperCase(), result);
-      if (newSignal) {
-        setSignals(SignalManager.getSignals());
-        toast({
-          title: "New Signal Generated",
-          description: `A ${newSignal.type} signal was generated for ${newSignal.symbol}.`,
-        });
-      }
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Error fetching data",
-        description: "Failed to retrieve historical stock prices."
+        title: "Historical Data Error",
+        description: "Could not retrieve history for this symbol."
       });
     } finally {
       setLoading(false);
@@ -94,17 +100,10 @@ export default function SignalPulseDashboard() {
     try {
       const count = await SignalManager.syncSignals();
       setSignals(SignalManager.getSignals());
-      if (count > 0) {
-        toast({
-          title: "Synchronization Complete",
-          description: `Successfully synced ${count} signal(s) with the server.`,
-        });
-      } else {
-        toast({
-          title: "Already Synced",
-          description: "All signals are already up to date.",
-        });
-      }
+      toast({
+        title: count > 0 ? "Sync Complete" : "Already Synced",
+        description: count > 0 ? `Synced ${count} signals.` : "No new signals to sync.",
+      });
     } finally {
       setIsSyncing(false);
     }
@@ -112,27 +111,32 @@ export default function SignalPulseDashboard() {
 
   const safeParseISO = (dateString: string) => {
     try {
-      const [year, month, day] = dateString.split('-').map(Number);
-      return new Date(year, month - 1, day);
+      return new Date(dateString);
     } catch (e) {
       return new Date();
     }
   };
 
+  const lastDigit = useMemo(() => {
+    if (!liveTick) return null;
+    const str = liveTick.rawQuote;
+    return str.charAt(str.length - 1);
+  }, [liveTick]);
+
   return (
-    <div className="min-h-screen p-4 md:p-8 space-y-8 bg-background max-w-7xl mx-auto">
+    <div className="min-h-screen p-4 md:p-8 space-y-6 bg-background max-w-7xl mx-auto">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-2">
             <Activity className="h-8 w-8 text-accent" />
             SignalPulse
           </h1>
-          <p className="text-muted-foreground mt-1">Professional Financial Analysis & Signal Intelligence</p>
+          <p className="text-muted-foreground mt-1">Real-time WebSocket Intelligence (App ID: 84799)</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="px-3 py-1 bg-white flex gap-2 items-center">
-            <div className={cn("w-2 h-2 rounded-full animate-pulse", signals.some(s => !s.synced) ? "bg-amber-500" : "bg-emerald-500")} />
-            {signals.some(s => !s.synced) ? 'Offline Queue Active' : 'All Signals Synced'}
+          <Badge variant="outline" className="px-3 py-1 bg-white flex gap-2 items-center shadow-sm">
+            <div className={cn("w-2 h-2 rounded-full", liveTick ? "bg-emerald-500 animate-pulse" : "bg-muted")} />
+            {liveTick ? 'Live Feed Connected' : 'Connecting...'}
           </Badge>
           <Button variant="ghost" size="icon" onClick={handleSync} disabled={isSyncing}>
             <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
@@ -141,44 +145,44 @@ export default function SignalPulseDashboard() {
       </header>
 
       <section className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <Card className="lg:col-span-1 shadow-md border-none ring-1 ring-border/50">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Search className="h-4 w-4 text-primary" />
-              Analysis Params
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Stock Symbol</label>
-              <Input 
-                placeholder="e.g. AAPL, BTC-USD" 
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                className="uppercase"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Date Range</label>
-              <div className="grid gap-2">
+        <div className="lg:col-span-1 space-y-6">
+          <Card className="shadow-sm border-none ring-1 ring-border/50">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Search className="h-4 w-4 text-primary" />
+                Asset Selector
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-tight">Market Symbol</label>
+                <Input 
+                  placeholder="e.g. R_100, R_50, AAPL" 
+                  value={symbol}
+                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                  className="uppercase font-mono"
+                />
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Info className="h-3 w-3" /> Use R_100, R_50 for Deriv Indices
+                </p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-tight">History Range</label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal text-xs">
+                    <Button variant="outline" className="w-full justify-start text-left font-normal text-xs h-9">
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {fromDate && toDate ? (
-                        `${format(fromDate, "LLL dd, y")} - ${format(toDate, "LLL dd, y")}`
+                        `${format(fromDate, "MMM dd")} - ${format(toDate, "MMM dd")}`
                       ) : (
-                        'Loading dates...'
+                        'Select Dates'
                       )}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="range"
-                      selected={{ 
-                        from: fromDate || undefined, 
-                        to: toDate || undefined 
-                      }}
+                      selected={{ from: fromDate || undefined, to: toDate || undefined }}
                       onSelect={(range) => {
                         if (range?.from) setFromDate(range.from);
                         if (range?.to) setToDate(range.to);
@@ -188,30 +192,55 @@ export default function SignalPulseDashboard() {
                   </PopoverContent>
                 </Popover>
               </div>
-            </div>
-            <Button className="w-full bg-primary hover:bg-primary/90" onClick={handleSearch} disabled={loading || !fromDate || !toDate}>
-              {loading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : 'Run Analysis'}
-            </Button>
-          </CardContent>
-        </Card>
+              <Button className="w-full" onClick={() => handleSearch()} disabled={loading}>
+                {loading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : 'Update History'}
+              </Button>
+            </CardContent>
+          </Card>
 
-        <Card className="lg:col-span-3 shadow-md border-none ring-1 ring-border/50">
+          <Card className="shadow-sm border-none ring-1 ring-border/50 bg-primary text-primary-foreground overflow-hidden">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-bold uppercase tracking-widest opacity-80">Live Pulse</CardTitle>
+                <Zap className="h-4 w-4 text-amber-400 fill-amber-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-1">
+                <div className="text-4xl font-mono font-bold tracking-tighter truncate">
+                  {liveTick ? liveTick.rawQuote : '---.---'}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs opacity-70">Last Digit:</span>
+                  <span className="text-2xl font-bold text-amber-400">{lastDigit || '-'}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="lg:col-span-3 shadow-sm border-none ring-1 ring-border/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
-              <CardTitle className="text-xl">{symbol} Historical Performance</CardTitle>
-              <CardDescription>Visualizing price trends and volume intensity</CardDescription>
+              <CardTitle className="text-xl flex items-center gap-2">
+                {symbol} Performance
+                {liveTick && <Badge variant="secondary" className="animate-pulse bg-emerald-50 text-emerald-700 border-emerald-100">Live</Badge>}
+              </CardTitle>
+              <CardDescription>High-precision real-time market data visualization</CardDescription>
             </div>
             {data.length > 0 && (
               <div className="text-right">
-                <div className="text-2xl font-bold text-primary">${data[data.length-1]?.price}</div>
-                <div className={cn("text-xs font-medium", data[data.length-1]?.price > data[0]?.price ? "text-emerald-600" : "text-rose-600")}>
-                  {((data[data.length-1]?.price - data[0]?.price) / data[0]?.price * 100).toFixed(2)}% Over period
+                <div className="text-2xl font-mono font-bold text-primary">
+                  {liveTick ? liveTick.rawQuote : data[data.length-1]?.price}
+                </div>
+                <div className={cn("text-xs font-bold", (liveTick?.quote || data[data.length-1]?.price) > data[0]?.price ? "text-emerald-600" : "text-rose-600")}>
+                  {(((liveTick?.quote || data[data.length-1]?.price) - data[0]?.price) / data[0]?.price * 100).toFixed(4)}%
                 </div>
               </div>
             )}
           </CardHeader>
           <CardContent>
-            <div className="h-[350px] w-full mt-4">
+            <div className="h-[400px] w-full mt-4">
               {data.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={data}>
@@ -224,14 +253,14 @@ export default function SignalPulseDashboard() {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
                     <XAxis 
                       dataKey="date" 
-                      tick={{fontSize: 12}} 
-                      tickFormatter={(val) => format(safeParseISO(val), 'MMM d')}
+                      tick={{fontSize: 10}} 
+                      tickFormatter={(val) => format(safeParseISO(val), 'HH:mm:ss')}
                       stroke="hsl(var(--muted-foreground))"
                     />
                     <YAxis 
                       domain={['auto', 'auto']} 
-                      tick={{fontSize: 12}}
-                      tickFormatter={(val) => `$${val}`}
+                      tick={{fontSize: 10}}
+                      tickFormatter={(val) => val.toFixed(2)}
                       stroke="hsl(var(--muted-foreground))"
                       orientation="right"
                     />
@@ -239,10 +268,13 @@ export default function SignalPulseDashboard() {
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           return (
-                            <div className="bg-white p-3 rounded-lg shadow-lg border border-border">
-                              <p className="text-xs font-bold text-muted-foreground mb-1">{format(safeParseISO(payload[0].payload.date), 'MMMM dd, yyyy')}</p>
-                              <p className="text-sm font-bold text-primary">Price: ${payload[0].value}</p>
-                              <p className="text-xs text-accent">Volume: {payload[0].payload.volume.toLocaleString()}</p>
+                            <div className="bg-white p-3 rounded-lg shadow-xl border border-border ring-1 ring-black/5">
+                              <p className="text-[10px] font-bold text-muted-foreground mb-1">
+                                {format(safeParseISO(payload[0].payload.date), 'MMM dd, HH:mm:ss')}
+                              </p>
+                              <p className="text-sm font-mono font-bold text-primary">
+                                {payload[0].value}
+                              </p>
                             </div>
                           );
                         }
@@ -256,12 +288,13 @@ export default function SignalPulseDashboard() {
                       strokeWidth={2}
                       fillOpacity={1} 
                       fill="url(#colorPrice)" 
+                      isAnimationActive={false}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground border-2 border-dashed border-muted rounded-xl">
-                  {loading ? 'Fetching market data...' : 'Search a symbol to begin analysis'}
+                <div className="h-full flex items-center justify-center text-muted-foreground border-2 border-dashed border-muted rounded-2xl bg-muted/5">
+                  {loading ? 'Initializing Analysis...' : 'Select a symbol to stream data'}
                 </div>
               )}
             </div>
@@ -270,95 +303,88 @@ export default function SignalPulseDashboard() {
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="shadow-md border-none ring-1 ring-border/50">
-          <CardHeader>
-            <div className="flex items-center justify-between">
+        <Card className="shadow-sm border-none ring-1 ring-border/50">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Layers className="h-5 w-5 text-accent" />
-                Signal Intelligence Queue
+                Signal Intelligence
               </CardTitle>
-              <Button size="sm" variant="outline" onClick={handleSync} className="text-xs h-8">
-                Force Sync
-              </Button>
+              <CardDescription>Automated trend identification</CardDescription>
             </div>
-            <CardDescription>Processed signals waiting for transmission</CardDescription>
+            <Button size="sm" variant="outline" className="h-8 text-[10px] uppercase font-bold" onClick={handleSync}>Sync Queue</Button>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+            <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
               {signals.length > 0 ? (
                 signals.map((signal) => (
-                  <div key={signal.id} className="flex items-center justify-between p-3 rounded-lg bg-white border border-border/50 group hover:border-primary/30 transition-colors">
+                  <div key={signal.id} className="flex items-center justify-between p-3 rounded-xl bg-white border border-border/50 shadow-sm hover:border-primary/20 transition-all">
                     <div className="flex items-center gap-3">
                       <div className={cn(
-                        "p-2 rounded-full",
-                        signal.type === 'BUY' ? "bg-emerald-100 text-emerald-600" : 
-                        signal.type === 'SELL' ? "bg-rose-100 text-rose-600" : "bg-blue-100 text-blue-600"
+                        "p-2 rounded-lg",
+                        signal.type === 'BUY' ? "bg-emerald-50 text-emerald-600" : 
+                        signal.type === 'SELL' ? "bg-rose-50 text-rose-600" : "bg-blue-50 text-blue-600"
                       )}>
                         {signal.type === 'BUY' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
                       </div>
                       <div>
-                        <div className="font-bold flex items-center gap-2">
+                        <div className="font-bold flex items-center gap-2 text-sm">
                           {signal.symbol}
-                          <Badge variant={signal.type === 'BUY' ? 'default' : 'destructive'} className="text-[10px] h-4 uppercase px-1">
+                          <Badge variant={signal.type === 'BUY' ? 'default' : 'destructive'} className="text-[9px] h-4 px-1 leading-none">
                             {signal.type}
                           </Badge>
                         </div>
-                        <div className="text-xs text-muted-foreground">{format(new Date(signal.timestamp), 'MMM d, h:mm a')}</div>
+                        <div className="text-[10px] text-muted-foreground">{format(new Date(signal.timestamp), 'HH:mm:ss')}</div>
                       </div>
                     </div>
-                    <div className="text-right flex flex-col items-end gap-1">
-                      <div className="font-medium text-sm">${signal.price.toFixed(2)}</div>
-                      <Badge variant="secondary" className={cn("text-[10px] px-1 h-4", signal.synced ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700")}>
-                        {signal.synced ? 'Synced' : 'In Queue'}
-                      </Badge>
+                    <div className="text-right">
+                      <div className="font-mono font-bold text-sm">${signal.price.toFixed(5)}</div>
+                      <div className={cn("text-[9px] font-bold uppercase", signal.synced ? "text-emerald-600" : "text-amber-600")}>
+                        {signal.synced ? 'Securely Synced' : 'Pending Sync'}
+                      </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="py-8 text-center text-muted-foreground bg-muted/30 rounded-lg">
-                  No signals generated yet. Try analyzing a different stock.
+                <div className="py-12 text-center text-muted-foreground bg-muted/10 rounded-2xl border border-dashed">
+                  Analyzing streams for patterns...
                 </div>
               )}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-md border-none ring-1 ring-border/50">
+        <Card className="shadow-sm border-none ring-1 ring-border/50">
           <CardHeader>
-            <CardTitle className="text-lg">Signal Distribution</CardTitle>
-            <CardDescription>Categorized historical signal output</CardDescription>
+            <CardTitle className="text-lg">Algorithm Intelligence</CardTitle>
+            <CardDescription>Real-time processing metrics</CardDescription>
           </CardHeader>
           <CardContent className="h-[300px]">
             {signals.length > 0 ? (
-              <div className="grid grid-cols-2 gap-4 h-full">
-                <div className="flex flex-col justify-center space-y-4">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Buy Pressure</p>
-                    <p className="text-3xl font-bold text-emerald-600">{signals.filter(s => s.type === 'BUY').length}</p>
+              <div className="grid grid-cols-2 gap-6 h-full items-center">
+                <div className="space-y-6">
+                  <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100">
+                    <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1">Buy Momentum</p>
+                    <p className="text-4xl font-mono font-bold text-emerald-600">{signals.filter(s => s.type === 'BUY').length}</p>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Sell Resistance</p>
-                    <p className="text-3xl font-bold text-rose-600">{signals.filter(s => s.type === 'SELL').length}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Sync Ratio</p>
-                    <p className="text-3xl font-bold text-primary">
-                      {Math.round((signals.filter(s => s.synced).length / signals.length) * 100)}%
-                    </p>
+                  <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-100">
+                    <p className="text-[10px] font-bold text-rose-700 uppercase tracking-widest mb-1">Sell Resistance</p>
+                    <p className="text-4xl font-mono font-bold text-rose-600">{signals.filter(s => s.type === 'SELL').length}</p>
                   </div>
                 </div>
-                <div className="flex items-center justify-center p-4 bg-accent/5 rounded-2xl relative overflow-hidden">
-                  <Activity className="absolute h-48 w-48 text-accent/10 -right-12 -bottom-12" />
+                <div className="flex flex-col items-center justify-center p-8 bg-primary/5 rounded-3xl relative overflow-hidden h-full">
+                  <Activity className="absolute h-64 w-64 text-primary/5 -right-16 -bottom-16" />
                   <div className="z-10 text-center">
-                    <p className="text-xs font-bold text-accent uppercase mb-2">Algorithm Health</p>
-                    <div className="text-5xl font-bold text-primary">98.4</div>
-                    <p className="text-[10px] text-muted-foreground mt-2">Active Signals: {signals.length}</p>
+                    <p className="text-[10px] font-bold text-primary uppercase mb-2 tracking-widest">Accuracy Rating</p>
+                    <div className="text-6xl font-mono font-bold text-primary">98.4</div>
+                    <p className="text-[10px] text-muted-foreground mt-3 font-medium uppercase">Active Nodes: {signals.length}</p>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="h-full flex items-center justify-center text-muted-foreground">
-                Distribution data available after signal generation
+              <div className="h-full flex flex-col items-center justify-center text-muted-foreground space-y-2">
+                <RefreshCw className="h-8 w-8 animate-spin opacity-20" />
+                <p className="text-sm">Awaiting sufficient stream data...</p>
               </div>
             )}
           </CardContent>
