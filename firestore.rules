@@ -1,0 +1,111 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * SIGNALPULSE SECURITY ARCHITECTURE
+     *
+     * Core Philosophy: 
+     * This ruleset implements a system-centric security model where the majority of data is 
+     * read-only for authenticated users and operational data (Signals) is restricted 
+     * to administrative or system-level access.
+     *
+     * Data Structure:
+     * - /stocks/{stockId}: Top-level collection for stock metadata.
+     * - /stocks/{stockId}/historicalPrices/{priceId}: Nested daily pricing data.
+     * - /signals/{signalId}: Top-level collection for system-generated trading alerts.
+     *
+     * Key Security Decisions:
+     * 1. Read-Only Reference Data: Stocks and Historical Prices are readable by any authenticated user 
+     *    but cannot be modified via the client SDK. This assumes a backend service handles ingestion.
+     * 2. Restricted Signals: Signals are treated as sensitive operational data. Read access is 
+     *    limited to users with an 'admin' role, and write access is completely blocked for clients.
+     * 3. Prototyping Flexibility: Data shape validation is omitted to allow for rapid schema 
+     *    evolution, focusing strictly on authorization and relational consistency.
+     */
+
+    // --- GLOBAL HELPER FUNCTIONS ---
+
+    /** 
+     * @description Checks if the request is from an authenticated user.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** 
+     * @description Checks if the authenticated user has an administrative role.
+     * Note: This assumes a standard /users/{uid} document structure with a 'role' field.
+     */
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    /** 
+     * @description Combined check for ownership/access and document existence for updates/deletes.
+     */
+    function isExisting() {
+      return resource != null;
+    }
+
+    // --- COLLECTION RULES ---
+
+    /**
+     * @description Rules for the Stock collection. Provides reference data for stocks.
+     * @path /stocks/{stockId}
+     * @allow (get, list) if a user is signed in.
+     * @deny (create, update, delete) for all client-side requests (Backend managed).
+     * @principle System-managed reference data pattern.
+     */
+    match /stocks/{stockId} {
+      allow get, list: if isSignedIn();
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+
+      /**
+       * @description Rules for historical price subcollection. Nested under specific stocks.
+       * @path /stocks/{stockId}/historicalPrices/{historicalPriceId}
+       * @allow (get, list) if a user is signed in.
+       * @deny (create, update, delete) for all client-side requests (Backend managed).
+       * @principle Structural segregation of time-series data.
+       */
+      match /historicalPrices/{historicalPriceId} {
+        allow get, list: if isSignedIn();
+        allow create: if false;
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
+
+    /**
+     * @description Rules for the Signal collection. Manages alerts queued for Telegram dispatch.
+     * @path /signals/{signalId}
+     * @allow (get, list) only for administrators/monitoring tools.
+     * @deny (create, update, delete) for all client-side requests to prevent signal manipulation.
+     * @principle Restricted operational data access.
+     */
+    match /signals/{signalId} {
+      // Access is restricted to admins or backend monitoring roles as per IR reasoning
+      allow get, list: if isAdmin();
+      
+      // Signals are system-generated; client writes are strictly forbidden
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // --- OPTIONAL: USER PROFILE PLACEHOLDER ---
+    // Included to support the isAdmin() helper logic if user roles are implemented.
+    match /users/{userId} {
+      /**
+       * @description Basic user profile rules to support role-based access.
+       */
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && request.auth.uid == userId && isExisting();
+      allow delete: if isAdmin() && isExisting();
+    }
+  }
+}

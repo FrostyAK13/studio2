@@ -1,0 +1,213 @@
+{
+  "entities": {
+    "Stock": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Stock",
+      "type": "object",
+      "description": "Represents a financial stock whose data is being analyzed by the SignalPulse application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Stock entity."
+        },
+        "symbol": {
+          "type": "string",
+          "description": "The unique ticker symbol of the stock (e.g., AAPL, MSFT)."
+        },
+        "companyName": {
+          "type": "string",
+          "description": "The full name of the company associated with the stock symbol."
+        },
+        "exchange": {
+          "type": "string",
+          "description": "The stock exchange where the stock is primarily traded (e.g., NASDAQ, NYSE)."
+        },
+        "lastHistoricalPriceFetchDate": {
+          "type": "string",
+          "description": "The date and time when the historical price data for this stock was last successfully fetched from a third-party API.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "symbol",
+        "companyName",
+        "exchange"
+      ]
+    },
+    "HistoricalPrice": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "HistoricalPrice",
+      "type": "object",
+      "description": "Stores a single day's historical price and volume data for a specific stock.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the HistoricalPrice entity."
+        },
+        "stockId": {
+          "type": "string",
+          "description": "Reference to the Stock entity this historical price data belongs to. (Relationship: Stock 1:N HistoricalPrice)"
+        },
+        "date": {
+          "type": "string",
+          "description": "The calendar date for which this historical price data is recorded.",
+          "format": "date"
+        },
+        "open": {
+          "type": "number",
+          "description": "The opening price of the stock on the specified date."
+        },
+        "high": {
+          "type": "number",
+          "description": "The highest price of the stock on the specified date."
+        },
+        "low": {
+          "type": "number",
+          "description": "The lowest price of the stock on the specified date."
+        },
+        "close": {
+          "type": "number",
+          "description": "The closing price of the stock on the specified date."
+        },
+        "adjustedClose": {
+          "type": "number",
+          "description": "The adjusted closing price of the stock, reflecting factors like dividends and stock splits."
+        },
+        "volume": {
+          "type": "number",
+          "description": "The total number of shares traded on the specified date."
+        }
+      },
+      "required": [
+        "id",
+        "stockId",
+        "date",
+        "open",
+        "high",
+        "low",
+        "close",
+        "adjustedClose",
+        "volume"
+      ]
+    },
+    "Signal": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Signal",
+      "type": "object",
+      "description": "Represents a generated trading signal for a stock, including its details and dispatch status via Telegram bot.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Signal entity."
+        },
+        "stockId": {
+          "type": "string",
+          "description": "Reference to the Stock entity for which this signal was generated. (Relationship: Stock 1:N Signal)"
+        },
+        "generatedAt": {
+          "type": "string",
+          "description": "The date and time when the signal was generated locally by the app.",
+          "format": "date-time"
+        },
+        "signalType": {
+          "type": "string",
+          "description": "The type of signal generated (e.g., 'BUY', 'SELL', 'HOLD', 'Strong Buy')."
+        },
+        "priceAtSignal": {
+          "type": "number",
+          "description": "The stock price at the moment the signal was generated."
+        },
+        "signalDescription": {
+          "type": "string",
+          "description": "A detailed textual description or rationale for the generated signal."
+        },
+        "rulesApplied": {
+          "type": "string",
+          "description": "Description of the predefined rules or parameters that were applied to generate this signal."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current transmission status of the signal (e.g., 'PENDING', 'SENT', 'FAILED_RETRY', 'DELIVERED')."
+        },
+        "lastAttemptAt": {
+          "type": "string",
+          "description": "The date and time of the last attempt to dispatch this signal to the server/Telegram bot.",
+          "format": "date-time"
+        },
+        "telegramMessageId": {
+          "type": "string",
+          "description": "The message ID returned by the Telegram API if the signal was successfully dispatched, useful for updates or deletions.",
+          "format": "string"
+        }
+      },
+      "required": [
+        "id",
+        "stockId",
+        "generatedAt",
+        "signalType",
+        "priceAtSignal",
+        "signalDescription",
+        "rulesApplied",
+        "status"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/stocks/{stockId}",
+        "definition": {
+          "entityName": "Stock",
+          "schema": {
+            "$ref": "#/backend/entities/Stock"
+          },
+          "description": "Stores details about individual financial stocks. Documents in this collection are globally readable and serve as parent entities for historical price data. Includes denormalized data like 'lastHistoricalPriceFetchDate' for efficient status checks."
+        }
+      },
+      {
+        "path": "/stocks/{stockId}/historicalPrices/{historicalPriceId}",
+        "definition": {
+          "entityName": "HistoricalPrice",
+          "schema": {
+            "$ref": "#/backend/entities/HistoricalPrice"
+          },
+          "description": "Contains daily historical price and volume data for a specific stock. Each document is a subcollection of a 'Stock' document. This structure supports efficient querying of historical data for a given stock. The 'stockId' field in the document itself provides denormalized reference to the parent stock.",
+          "params": [
+            {
+              "name": "stockId",
+              "description": "The unique identifier of the parent Stock entity."
+            },
+            {
+              "name": "historicalPriceId",
+              "description": "The unique identifier for a specific historical price record, typically based on date."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/signals/{signalId}",
+        "definition": {
+          "entityName": "Signal",
+          "schema": {
+            "$ref": "#/backend/entities/Signal"
+          },
+          "description": "Stores generated trading signals that are queued for dispatch via a Telegram bot. This collection is primarily managed by a backend service, with restricted write access for signal generation and read access for backend monitoring. Documents include 'stockId' for authorization independence, 'status' for explicit state modeling of dispatch, and 'telegramMessageId' for post-dispatch management.",
+          "params": [
+            {
+              "name": "signalId",
+              "description": "The unique identifier for a generated signal."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The proposed Firestore structure for SignalPulse prioritizes Authorization Independence and Structural Segregation to ensure clarity, security, and efficient querying. \n\n1.  **Stocks (`/stocks/{stockId}`):** This top-level collection will store all 'Stock' entities. It is designed with a homogeneous security posture, likely allowing public read access for all users or authenticated users, while write access is restricted to a backend service responsible for managing stock metadata. This segregation ensures that all documents within this collection share the same access rules, simplifying security rule definition.\n\n2.  **Historical Prices (`/stocks/{stockId}/historicalPrices/{historicalPriceId}`):** 'HistoricalPrice' entities are stored as a subcollection under their respective 'Stock' documents. This directly reflects the 1:N relationship between a Stock and its historical prices. Like the parent 'Stock' collection, this subcollection maintains a homogeneous security posture, expected to be publicly readable. Authorization Independence is achieved here by assuming that access to historical prices is implicitly tied to accessing the parent stock, and since both are publicly accessible data, no complex hierarchical authorization (`get()`) calls are needed in rules for read operations. For write operations, only the backend service responsible for data ingestion would have access.\n\n3.  **Signals (`/signals/{signalId}`):** 'Signal' entities are stored in a dedicated top-level collection. This design choice is based on the core feature of the app: 'sending signals via Telegram bot' and 'offline signal management' where signals are 'queued for transmission to the server'. This suggests that signals are primarily system-generated and managed by a backend service for dispatch, rather than being directly user-owned or requiring complex user-specific authorization per signal document. Each signal document includes `stockId` which serves as a denormalized reference, enabling direct access to related stock information without requiring `get()` calls to the 'Stock' parent for authorization. This guarantees Authorization Independence. The security posture for this collection is highly restricted: write access is granted exclusively to the backend service generating and queuing signals, and read access would be limited to backend monitoring tools or administrators. This structural segregation prevents unauthorized users from listing or manipulating signals, which are critical for the app's core dispatch functionality. The `status` field in the Signal entity (e.g., 'PENDING', 'SENT', 'FAILED_RETRY', 'DELIVERED') provides clear, explicit state modeling, enhancing debuggability and predictable schema.\n\n**QAPs (Rules are not Filters) Justification:**\n\n*   **`/stocks`:** This collection allows for simple, robust `list` operations. Security rules can permit read access globally (e.g., `allow read: true;` for public data, or `allow read: if request.auth != null;` for authenticated users) without needing complex filtering logic within the rules. All documents in this collection share the same security requirements.\n*   **`/stocks/{stockId}/historicalPrices`:** Similarly, listing historical prices for a specific stock is efficient and secure. The rules can grant read access based on the parent stock's public/authenticated status, again avoiding rule-based filtering. The clear path structure inherently restricts the scope of the `list` operation to a single stock.\n*   **`/signals`:** For this collection, `list` operations are intentionally restricted. Security rules will strictly define write access for the backend service account and read access for specific administrative/monitoring roles. This approach ensures that `list` operations are not used by unauthorized clients to filter for specific signals, upholding the principle that rules are not filters."
+  }
+}
