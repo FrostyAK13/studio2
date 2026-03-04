@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react';
-import { format, subMonths } from 'date-fns';
+import { format, subMonths, parseISO } from 'date-fns';
 import { Search, Calendar as CalendarIcon, TrendingUp, TrendingDown, RefreshCw, Activity, Layers } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,8 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Area, AreaChart, Tooltip } from 'recharts';
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { fetchHistoricalData, StockDataPoint } from '@/lib/stock-service';
 import { SignalManager, Signal } from '@/lib/signal-manager';
 import { useToast } from '@/hooks/use-toast';
@@ -19,8 +18,8 @@ import { cn } from '@/lib/utils';
 
 export default function SignalPulseDashboard() {
   const [symbol, setSymbol] = useState('AAPL');
-  const [fromDate, setFromDate] = useState<Date>(subMonths(new Date(), 1));
-  const [toDate, setToDate] = useState<Date>(new Date());
+  const [fromDate, setFromDate] = useState<Date | null>(null);
+  const [toDate, setToDate] = useState<Date | null>(null);
   const [data, setData] = useState<StockDataPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [signals, setSignals] = useState<Signal[]>([]);
@@ -28,12 +27,40 @@ export default function SignalPulseDashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
+    // Initialize dates on the client to avoid hydration mismatch
+    const end = new Date();
+    const start = subMonths(end, 1);
+    setFromDate(start);
+    setToDate(end);
     setSignals(SignalManager.getSignals());
-    handleSearch();
+    
+    // Initial search with the calculated dates
+    const performInitialSearch = async () => {
+      setLoading(true);
+      try {
+        const result = await fetchHistoricalData(
+          symbol.toUpperCase(),
+          format(start, 'yyyy-MM-dd'),
+          format(end, 'yyyy-MM-dd')
+        );
+        setData(result);
+        
+        const newSignal = SignalManager.processSignalsFromData(symbol.toUpperCase(), result);
+        if (newSignal) {
+          setSignals(SignalManager.getSignals());
+        }
+      } catch (error) {
+        console.error("Initial search failed", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    performInitialSearch();
   }, []);
 
   const handleSearch = async () => {
-    if (!symbol) return;
+    if (!symbol || !fromDate || !toDate) return;
     setLoading(true);
     try {
       const result = await fetchHistoricalData(
@@ -83,6 +110,15 @@ export default function SignalPulseDashboard() {
     }
   };
 
+  const safeParseISO = (dateString: string) => {
+    try {
+      const [year, month, day] = dateString.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    } catch (e) {
+      return new Date();
+    }
+  };
+
   return (
     <div className="min-h-screen p-4 md:p-8 space-y-8 bg-background max-w-7xl mx-auto">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -129,13 +165,20 @@ export default function SignalPulseDashboard() {
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-left font-normal text-xs">
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {format(fromDate, "LLL dd, y")} - {format(toDate, "LLL dd, y")}
+                      {fromDate && toDate ? (
+                        `${format(fromDate, "LLL dd, y")} - ${format(toDate, "LLL dd, y")}`
+                      ) : (
+                        'Loading dates...'
+                      )}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="range"
-                      selected={{ from: fromDate, to: toDate }}
+                      selected={{ 
+                        from: fromDate || undefined, 
+                        to: toDate || undefined 
+                      }}
                       onSelect={(range) => {
                         if (range?.from) setFromDate(range.from);
                         if (range?.to) setToDate(range.to);
@@ -146,7 +189,7 @@ export default function SignalPulseDashboard() {
                 </Popover>
               </div>
             </div>
-            <Button className="w-full bg-primary hover:bg-primary/90" onClick={handleSearch} disabled={loading}>
+            <Button className="w-full bg-primary hover:bg-primary/90" onClick={handleSearch} disabled={loading || !fromDate || !toDate}>
               {loading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : 'Run Analysis'}
             </Button>
           </CardContent>
@@ -177,16 +220,12 @@ export default function SignalPulseDashboard() {
                         <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
                         <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
                       </linearGradient>
-                      <linearGradient id="colorAccent" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0}/>
-                      </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
                     <XAxis 
                       dataKey="date" 
                       tick={{fontSize: 12}} 
-                      tickFormatter={(val) => format(parseISO(val), 'MMM d')}
+                      tickFormatter={(val) => format(safeParseISO(val), 'MMM d')}
                       stroke="hsl(var(--muted-foreground))"
                     />
                     <YAxis 
@@ -201,7 +240,7 @@ export default function SignalPulseDashboard() {
                         if (active && payload && payload.length) {
                           return (
                             <div className="bg-white p-3 rounded-lg shadow-lg border border-border">
-                              <p className="text-xs font-bold text-muted-foreground mb-1">{format(parseISO(payload[0].payload.date), 'MMMM dd, yyyy')}</p>
+                              <p className="text-xs font-bold text-muted-foreground mb-1">{format(safeParseISO(payload[0].payload.date), 'MMMM dd, yyyy')}</p>
                               <p className="text-sm font-bold text-primary">Price: ${payload[0].value}</p>
                               <p className="text-xs text-accent">Volume: {payload[0].payload.volume.toLocaleString()}</p>
                             </div>
@@ -328,8 +367,3 @@ export default function SignalPulseDashboard() {
     </div>
   );
 }
-
-const parseISO = (dateString: string) => {
-  const [year, month, day] = dateString.split('-').map(Number);
-  return new Date(year, month - 1, day);
-};
