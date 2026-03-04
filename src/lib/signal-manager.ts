@@ -38,19 +38,15 @@ export const SignalManager = {
     return stored ? JSON.parse(stored) : [];
   },
 
-  syncSignals: async (): Promise<number> => {
+  markAsSynced: (signalId: string): void => {
     const signals = SignalManager.getSignals();
-    const unsynced = signals.filter(s => !s.synced);
-    
-    if (unsynced.length === 0) return 0;
+    const updated = signals.map(s => s.id === signalId ? { ...s, synced: true } : s);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  },
 
-    // Simulate server processing for 84799 app verification
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    const updatedSignals = signals.map(s => ({ ...s, synced: true }));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSignals));
-    
-    return unsynced.length;
+  syncSignals: async (): Promise<number> => {
+    // This is now handled by the UI calling the dispatch flow
+    return 0;
   },
 
   processSignalsFromData: (symbol: string, data: { price: number }[]): Signal | null => {
@@ -60,11 +56,10 @@ export const SignalManager = {
     const currentPrice = data[data.length - 1].price;
     
     // Mock algo: Trigger on specific price endings or patterns if needed
-    // For now, using simple trend-based mock logic
     const randomFactor = Math.random();
-    if (randomFactor > 0.99) {
+    if (randomFactor > 0.995) {
       return SignalManager.saveSignal({ symbol, type: 'BUY', price: currentPrice });
-    } else if (randomFactor < 0.01) {
+    } else if (randomFactor < 0.005) {
       return SignalManager.saveSignal({ symbol, type: 'SELL', price: currentPrice });
     }
     

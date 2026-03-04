@@ -1,9 +1,8 @@
-
 "use client"
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { format, subMonths } from 'date-fns';
-import { Search, Calendar as CalendarIcon, TrendingUp, TrendingDown, RefreshCw, Activity, Layers, Zap, Info, ChevronDown } from 'lucide-react';
+import { Search, Calendar as CalendarIcon, TrendingUp, TrendingDown, RefreshCw, Activity, Layers, Zap, Info, ChevronDown, Send, Settings, Bot } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -17,15 +16,13 @@ import { SignalManager, Signal } from '@/lib/signal-manager';
 import { derivWs, Tick } from '@/lib/deriv-websocket';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { dispatchSignalToTelegram } from '@/ai/flows/dispatch-signal';
 
 const VOLATILITY_INDICES = [
   { value: 'R_10', label: 'Volatility 10 Index' },
-  { value: 'R_15', label: 'Volatility 15 Index' },
   { value: 'R_25', label: 'Volatility 25 Index' },
-  { value: 'R_30', label: 'Volatility 30 Index' },
   { value: 'R_50', label: 'Volatility 50 Index' },
   { value: 'R_75', label: 'Volatility 75 Index' },
-  { value: 'R_90', label: 'Volatility 90 Index' },
   { value: 'R_100', label: 'Volatility 100 Index' },
   { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
   { value: '1HZ15V', label: 'Volatility 15 (1s) Index' },
@@ -47,6 +44,12 @@ export default function SignalPulseDashboard() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [liveTick, setLiveTick] = useState<Tick | null>(null);
   const [mounted, setMounted] = useState(false);
+  
+  // Telegram Settings
+  const [botToken, setBotToken] = useState('');
+  const [chatId, setChatId] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -57,6 +60,10 @@ export default function SignalPulseDashboard() {
     setToDate(end);
     setSignals(SignalManager.getSignals());
     
+    // Load Telegram Settings
+    setBotToken(localStorage.getItem('tg_bot_token') || '');
+    setChatId(localStorage.getItem('tg_chat_id') || '');
+
     handleSearch('R_100', start, end);
   }, []);
 
@@ -84,11 +91,48 @@ export default function SignalPulseDashboard() {
       const newSignal = SignalManager.processSignalsFromData(symbol, [{ price: tick.quote }]);
       if (newSignal) {
         setSignals(SignalManager.getSignals());
+        handleAutoDispatch(newSignal);
       }
     });
 
     return () => unsubscribe();
-  }, [symbol, mounted]);
+  }, [symbol, mounted, botToken, chatId]);
+
+  const handleAutoDispatch = async (signal: Signal) => {
+    if (!botToken || !chatId) return;
+
+    const currentSymbolLabel = VOLATILITY_INDICES.find(i => i.value === signal.symbol)?.label || signal.symbol;
+    
+    const result = await dispatchSignalToTelegram({
+      botToken,
+      chatId,
+      symbol: currentSymbolLabel,
+      type: signal.type,
+      price: signal.price,
+    });
+
+    if (result.success) {
+      toast({
+        title: "GOD FATHER Dispatch",
+        description: `Signal sent to Telegram (ID: ${result.messageId})`,
+      });
+      // Mark as synced locally
+      SignalManager.markAsSynced(signal.id);
+      setSignals(SignalManager.getSignals());
+    } else {
+      console.error("Telegram Dispatch Error:", result.error);
+    }
+  };
+
+  const handleSaveSettings = () => {
+    localStorage.setItem('tg_bot_token', botToken);
+    localStorage.setItem('tg_chat_id', chatId);
+    setShowSettings(false);
+    toast({
+      title: "Settings Saved",
+      description: "Telegram Bot configurations updated.",
+    });
+  };
 
   const handleSearch = async (s = symbol, from = fromDate, to = toDate) => {
     if (!s || !from || !to) return;
@@ -114,11 +158,13 @@ export default function SignalPulseDashboard() {
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      const count = await SignalManager.syncSignals();
-      setSignals(SignalManager.getSignals());
+      const unsynced = signals.filter(s => !s.synced);
+      for (const signal of unsynced) {
+        await handleAutoDispatch(signal);
+      }
       toast({
-        title: count > 0 ? "Sync Complete" : "Already Synced",
-        description: count > 0 ? `Synced ${count} signals.` : "No new signals to sync.",
+        title: "Sync Complete",
+        description: `Processed ${unsynced.length} signals.`,
       });
     } finally {
       setIsSyncing(false);
@@ -146,21 +192,57 @@ export default function SignalPulseDashboard() {
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-2">
-            <Activity className="h-8 w-8 text-accent" />
-            SignalPulse
+            <Bot className="h-8 w-8 text-accent" />
+            SignalPulse <span className="text-accent">GOD FATHER</span>
           </h1>
-          <p className="text-muted-foreground mt-1">Real-time WebSocket Intelligence (App ID: 84799)</p>
+          <p className="text-muted-foreground mt-1">Real-time WebSocket Signal Dispatcher (App ID: 84799)</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowSettings(!showSettings)} className="gap-2">
+            <Settings className="h-4 w-4" />
+            Bot Settings
+          </Button>
           <Badge variant="outline" className="px-3 py-1 bg-white flex gap-2 items-center shadow-sm">
             <div className={cn("w-2 h-2 rounded-full", liveTick ? "bg-emerald-500 animate-pulse" : "bg-muted")} />
             {liveTick ? 'Live Feed Connected' : 'Connecting...'}
           </Badge>
-          <Button variant="ghost" size="icon" onClick={handleSync} disabled={isSyncing}>
-            <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
-          </Button>
         </div>
       </header>
+
+      {showSettings && (
+        <Card className="border-accent/20 bg-accent/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <Send className="h-4 w-4" />
+              Telegram Bot Configuration
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase">Bot Token</label>
+              <Input 
+                type="password" 
+                placeholder="123456789:ABCDEF..." 
+                value={botToken} 
+                onChange={(e) => setBotToken(e.target.value)}
+                className="bg-white"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase">Chat ID</label>
+              <Input 
+                placeholder="-100123456789" 
+                value={chatId} 
+                onChange={(e) => setChatId(e.target.value)}
+                className="bg-white"
+              />
+            </div>
+            <div className="flex items-end">
+              <Button onClick={handleSaveSettings} className="w-full bg-accent hover:bg-accent/90">Save Configuration</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <section className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-1 space-y-6">
@@ -345,7 +427,7 @@ export default function SignalPulseDashboard() {
               <CardDescription>Automated trend identification</CardDescription>
             </div>
             <Button size="sm" variant="outline" className="h-8 text-[10px] uppercase font-bold" onClick={handleSync} disabled={isSyncing}>
-              Sync Queue
+              {isSyncing ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Force Sync'}
             </Button>
           </CardHeader>
           <CardContent>
@@ -363,7 +445,7 @@ export default function SignalPulseDashboard() {
                       </div>
                       <div>
                         <div className="font-bold flex items-center gap-2 text-sm">
-                          {signal.symbol}
+                          {VOLATILITY_INDICES.find(i => i.value === signal.symbol)?.label || signal.symbol}
                           <Badge variant={signal.type === 'BUY' ? 'default' : 'destructive'} className="text-[9px] h-4 px-1 leading-none">
                             {signal.type}
                           </Badge>
@@ -374,7 +456,7 @@ export default function SignalPulseDashboard() {
                     <div className="text-right">
                       <div className="font-mono font-bold text-sm">${signal.price.toFixed(5)}</div>
                       <div className={cn("text-[9px] font-bold uppercase", signal.synced ? "text-emerald-600" : "text-amber-600")}>
-                        {signal.synced ? 'Securely Synced' : 'Pending Sync'}
+                        {signal.synced ? 'Securely Synced' : 'Dispatch Pending'}
                       </div>
                     </div>
                   </div>
