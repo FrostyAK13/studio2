@@ -3,13 +3,14 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { format, subMonths } from 'date-fns';
-import { Search, Calendar as CalendarIcon, TrendingUp, TrendingDown, RefreshCw, Activity, Layers, Zap, Info } from 'lucide-react';
+import { Search, Calendar as CalendarIcon, TrendingUp, TrendingDown, RefreshCw, Activity, Layers, Zap, Info, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { fetchHistoricalData, StockDataPoint } from '@/lib/stock-service';
 import { SignalManager, Signal } from '@/lib/signal-manager';
@@ -17,8 +18,27 @@ import { derivWs, Tick } from '@/lib/deriv-websocket';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
+const VOLATILITY_INDICES = [
+  { value: 'R_10', label: 'Volatility 10 Index' },
+  { value: 'R_15', label: 'Volatility 15 Index' },
+  { value: 'R_25', label: 'Volatility 25 Index' },
+  { value: 'R_30', label: 'Volatility 30 Index' },
+  { value: 'R_50', label: 'Volatility 50 Index' },
+  { value: 'R_75', label: 'Volatility 75 Index' },
+  { value: 'R_90', label: 'Volatility 90 Index' },
+  { value: 'R_100', label: 'Volatility 100 Index' },
+  { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
+  { value: '1HZ15V', label: 'Volatility 15 (1s) Index' },
+  { value: '1HZ25V', label: 'Volatility 25 (1s) Index' },
+  { value: '1HZ30V', label: 'Volatility 30 (1s) Index' },
+  { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
+  { value: '1HZ75V', label: 'Volatility 75 (1s) Index' },
+  { value: '1HZ90V', label: 'Volatility 90 (1s) Index' },
+  { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
+];
+
 export default function SignalPulseDashboard() {
-  const [symbol, setSymbol] = useState('R_100'); // Default to a Deriv Volatility Index
+  const [symbol, setSymbol] = useState('R_100');
   const [fromDate, setFromDate] = useState<Date | null>(null);
   const [toDate, setToDate] = useState<Date | null>(null);
   const [data, setData] = useState<StockDataPoint[]>([]);
@@ -26,45 +46,41 @@ export default function SignalPulseDashboard() {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [liveTick, setLiveTick] = useState<Tick | null>(null);
+  const [mounted, setMounted] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Initialize dates on the client
+    setMounted(true);
     const end = new Date();
     const start = subMonths(end, 1);
     setFromDate(start);
     setToDate(end);
     setSignals(SignalManager.getSignals());
     
-    // Initial historical search
-    handleSearch(symbol, start, end);
+    handleSearch('R_100', start, end);
   }, []);
 
-  // Real-time tick subscription
   useEffect(() => {
-    if (!symbol) return;
+    if (!symbol || !mounted) return;
 
     const unsubscribe = derivWs.subscribe(symbol, (tick) => {
       setLiveTick(tick);
       
-      // Optionally update historical chart live (limit to last 50 points)
       setData(prev => {
         const lastPoint = prev[prev.length - 1];
         const newPoint = {
           date: new Date(tick.epoch * 1000).toISOString(),
           price: tick.quote,
-          volume: 0 // Deriv ticks don't always have volume in simple tick stream
+          volume: 0
         };
         
-        // Only add if it's a new second or substantial change
         if (!lastPoint || new Date(tick.epoch * 1000).getSeconds() !== new Date(lastPoint.date).getSeconds()) {
           const updated = [...prev, newPoint];
-          return updated.slice(-100); // Keep last 100 for visual pulse
+          return updated.slice(-100);
         }
         return prev;
       });
 
-      // Process real-time signals
       const newSignal = SignalManager.processSignalsFromData(symbol, [{ price: tick.quote }]);
       if (newSignal) {
         setSignals(SignalManager.getSignals());
@@ -72,7 +88,7 @@ export default function SignalPulseDashboard() {
     });
 
     return () => unsubscribe();
-  }, [symbol]);
+  }, [symbol, mounted]);
 
   const handleSearch = async (s = symbol, from = fromDate, to = toDate) => {
     if (!s || !from || !to) return;
@@ -123,6 +139,8 @@ export default function SignalPulseDashboard() {
     return str.charAt(str.length - 1);
   }, [liveTick]);
 
+  if (!mounted) return null;
+
   return (
     <div className="min-h-screen p-4 md:p-8 space-y-6 bg-background max-w-7xl mx-auto">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -155,16 +173,30 @@ export default function SignalPulseDashboard() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-tight">Market Symbol</label>
-                <Input 
-                  placeholder="e.g. R_100, R_50, AAPL" 
-                  value={symbol}
-                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                  className="uppercase font-mono"
-                />
-                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                  <Info className="h-3 w-3" /> Use R_100, R_50 for Deriv Indices
-                </p>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-tight">Derived Index</label>
+                <Select value={symbol} onValueChange={(val) => setSymbol(val)}>
+                  <SelectTrigger className="w-full font-medium">
+                    <SelectValue placeholder="Select Index" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Continuous Indices</SelectLabel>
+                      {VOLATILITY_INDICES.filter(i => !i.value.includes('1HZ')).map((index) => (
+                        <SelectItem key={index.value} value={index.value}>
+                          {index.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                    <SelectGroup>
+                      <SelectLabel>1s Indices</SelectLabel>
+                      {VOLATILITY_INDICES.filter(i => i.value.includes('1HZ')).map((index) => (
+                        <SelectItem key={index.value} value={index.value}>
+                          {index.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-tight">History Range</label>
@@ -223,7 +255,7 @@ export default function SignalPulseDashboard() {
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
               <CardTitle className="text-xl flex items-center gap-2">
-                {symbol} Performance
+                {VOLATILITY_INDICES.find(i => i.value === symbol)?.label || symbol}
                 {liveTick && <Badge variant="secondary" className="animate-pulse bg-emerald-50 text-emerald-700 border-emerald-100">Live</Badge>}
               </CardTitle>
               <CardDescription>High-precision real-time market data visualization</CardDescription>
@@ -312,7 +344,9 @@ export default function SignalPulseDashboard() {
               </CardTitle>
               <CardDescription>Automated trend identification</CardDescription>
             </div>
-            <Button size="sm" variant="outline" className="h-8 text-[10px] uppercase font-bold" onClick={handleSync}>Sync Queue</Button>
+            <Button size="sm" variant="outline" className="h-8 text-[10px] uppercase font-bold" onClick={handleSync} disabled={isSyncing}>
+              Sync Queue
+            </Button>
           </CardHeader>
           <CardContent>
             <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
