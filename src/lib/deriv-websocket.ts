@@ -34,6 +34,8 @@ class DerivWebsocket {
     this.ws.onmessage = (msg) => {
       try {
         const rawData = msg.data;
+        if (typeof rawData !== 'string') return;
+
         const data = JSON.parse(rawData);
 
         if (data.msg_type === 'tick' && data.tick) {
@@ -41,10 +43,12 @@ class DerivWebsocket {
           
           // CRITICAL: Extract the quote as a string directly from the raw JSON string 
           // to preserve trailing zeros (e.g., "10.50" instead of 10.5)
+          // We look for the exact "quote":123.450 portion of the message
           let rawQuote = data.tick.quote.toString();
-          const quoteMatch = rawData.match(/"quote":\s*([\d.]+)/);
-          if (quoteMatch && quoteMatch[1]) {
-            rawQuote = quoteMatch[1];
+          const quoteRegex = /"quote"\s*:\s*([\d.]+)/;
+          const match = rawData.match(quoteRegex);
+          if (match && match[1]) {
+            rawQuote = match[1];
           }
 
           const tick: Tick = {

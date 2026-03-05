@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { format, subMonths } from 'date-fns';
-import { Search, Calendar as CalendarIcon, TrendingUp, TrendingDown, RefreshCw, Activity, Layers, Zap, Info, ChevronDown, Send, Settings, Bot } from 'lucide-react';
+import { Search, Calendar as CalendarIcon, TrendingUp, TrendingDown, RefreshCw, Activity, Layers, Zap, Send, Settings, Bot } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { dispatchSignalToTelegram } from '@/ai/flows/dispatch-signal';
 
+// Removed Volatility 15, 30, and 90 as requested
 const VOLATILITY_INDICES = [
   { value: 'R_10', label: 'Volatility 10 Index' },
   { value: 'R_25', label: 'Volatility 25 Index' },
@@ -25,12 +26,9 @@ const VOLATILITY_INDICES = [
   { value: 'R_75', label: 'Volatility 75 Index' },
   { value: 'R_100', label: 'Volatility 100 Index' },
   { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
-  { value: '1HZ15V', label: 'Volatility 15 (1s) Index' },
   { value: '1HZ25V', label: 'Volatility 25 (1s) Index' },
-  { value: '1HZ30V', label: 'Volatility 30 (1s) Index' },
   { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
   { value: '1HZ75V', label: 'Volatility 75 (1s) Index' },
-  { value: '1HZ90V', label: 'Volatility 90 (1s) Index' },
   { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
 ];
 
@@ -116,11 +114,8 @@ export default function SignalPulseDashboard() {
         title: "GOD FATHER Dispatch",
         description: `Signal sent to Telegram (ID: ${result.messageId})`,
       });
-      // Mark as synced locally
       SignalManager.markAsSynced(signal.id);
       setSignals(SignalManager.getSignals());
-    } else {
-      console.error("Telegram Dispatch Error:", result.error);
     }
   };
 
@@ -180,10 +175,10 @@ export default function SignalPulseDashboard() {
   };
 
   const lastDigit = useMemo(() => {
-    if (!liveTick) return null;
+    if (!liveTick || !liveTick.rawQuote) return null;
     const str = liveTick.rawQuote;
-    // CRITICAL: Get the absolute last character of the raw string to capture zeros
-    return str.charAt(str.length - 1);
+    // CRITICAL: Get the absolute last character of the raw string to capture zero precision
+    return str.substring(str.length - 1);
   }, [liveTick]);
 
   if (!mounted) return null;
@@ -196,7 +191,7 @@ export default function SignalPulseDashboard() {
             <Bot className="h-8 w-8 text-accent" />
             SignalPulse <span className="text-accent">GOD FATHER</span>
           </h1>
-          <p className="text-muted-foreground mt-1">Real-time WebSocket Signal Dispatcher (App ID: 84799)</p>
+          <p className="text-muted-foreground mt-1">High-Precision Real-Time Tick Analysis</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowSettings(!showSettings)} className="gap-2">
@@ -263,16 +258,8 @@ export default function SignalPulseDashboard() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectLabel>Continuous Indices</SelectLabel>
-                      {VOLATILITY_INDICES.filter(i => !i.value.includes('1HZ')).map((index) => (
-                        <SelectItem key={index.value} value={index.value}>
-                          {index.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                    <SelectGroup>
-                      <SelectLabel>1s Indices</SelectLabel>
-                      {VOLATILITY_INDICES.filter(i => i.value.includes('1HZ')).map((index) => (
+                      <SelectLabel>Indices</SelectLabel>
+                      {VOLATILITY_INDICES.map((index) => (
                         <SelectItem key={index.value} value={index.value}>
                           {index.label}
                         </SelectItem>
@@ -341,15 +328,15 @@ export default function SignalPulseDashboard() {
                 {VOLATILITY_INDICES.find(i => i.value === symbol)?.label || symbol}
                 {liveTick && <Badge variant="secondary" className="animate-pulse bg-emerald-50 text-emerald-700 border-emerald-100">Live</Badge>}
               </CardTitle>
-              <CardDescription>High-precision real-time market data visualization</CardDescription>
+              <CardDescription>Precision data stream without rounding</CardDescription>
             </div>
-            {data.length > 0 && (
+            { (liveTick || data.length > 0) && (
               <div className="text-right">
                 <div className="text-2xl font-mono font-bold text-primary">
-                  {liveTick ? liveTick.rawQuote : data[data.length-1]?.price}
+                  {liveTick ? liveTick.rawQuote : (data.length > 0 ? data[data.length-1].price.toString() : '---')}
                 </div>
-                <div className={cn("text-xs font-bold", (liveTick?.quote || data[data.length-1]?.price) > data[0]?.price ? "text-emerald-600" : "text-rose-600")}>
-                  {(((liveTick?.quote || data[data.length-1]?.price) - data[0]?.price) / data[0]?.price * 100).toFixed(4)}%
+                <div className={cn("text-xs font-bold", (liveTick?.quote || (data.length > 0 ? data[data.length-1].price : 0)) > (data.length > 0 ? data[0].price : 0) ? "text-emerald-600" : "text-rose-600")}>
+                  {data.length > 0 ? (((liveTick?.quote || data[data.length-1].price) - data[0].price) / data[0].price * 100).toFixed(4) : '0.0000'}%
                 </div>
               </div>
             )}
@@ -425,7 +412,7 @@ export default function SignalPulseDashboard() {
                 <Layers className="h-5 w-5 text-accent" />
                 Signal Intelligence
               </CardTitle>
-              <CardDescription>Automated trend identification</CardDescription>
+              <CardDescription>Automated GOD FATHER identification</CardDescription>
             </div>
             <Button size="sm" variant="outline" className="h-8 text-[10px] uppercase font-bold" onClick={handleSync} disabled={isSyncing}>
               {isSyncing ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Force Sync'}
