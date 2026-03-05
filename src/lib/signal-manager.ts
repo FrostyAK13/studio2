@@ -1,4 +1,3 @@
-
 export interface Signal {
   id: string;
   symbol: string;
@@ -65,7 +64,7 @@ export const SignalManager = {
     // Track digit history for pattern-based strategies
     if (!digitHistory[symbol]) digitHistory[symbol] = [];
     digitHistory[symbol].push(dVal);
-    if (digitHistory[symbol].length > 5) digitHistory[symbol].shift();
+    if (digitHistory[symbol].length > 10) digitHistory[symbol].shift();
 
     const history = digitHistory[symbol];
     

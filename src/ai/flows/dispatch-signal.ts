@@ -44,8 +44,8 @@ const formatPrompt = ai.definePrompt({
 📲 **Entry Point:** {{{price}}}
 ⏱ **Signal Duration:** {{#if duration}}{{{duration}}}{{else}}Instant{{/if}}
 🔁 **Number of Runs:** {{#if runs}}{{{runs}}}{{else}}1{{/if}}
-🔄 **Recovery:** {{#if recovery}}{{{recovery}}}{{else}}None{{/if}}
-💪 **Confidence Level:** {{#if confidence}}{{{confidence}}}{{else}}95%{{/if}}
+🔄 **Recovery:** {{#if recovery}}{{{recovery}}}{{else}}Martingale{{/if}}
+💪 **Confidence Level:** {{#if confidence}}{{{confidence}}}{{else}}98%{{/if}}
 
 🚫 **Contact:** {{#if contact}}{{{contact}}}{{else}}@FrostyTradersSupport{{/if}}
 
@@ -55,9 +55,9 @@ const formatPrompt = ai.definePrompt({
 🔗 **Create a Deriv Trading Account** (https://deriv.com/signup?sidc=808C8BC1-CA13-4AE4-83EE-0A6513B55687&utm_campaign=dynamicworks&utm_medium=affiliate&utm_source=CU31372)
 
 Instructions:
-- Use the exact structure above.
-- Do not add extra text outside the template.
-- Ensure the referral link is preserved at the bottom.`,
+- Follow the structure exactly.
+- Preserve the referral link.
+- Ensure symbols and emojis are placed correctly.`,
 });
 
 const dispatchSignalFlow = ai.defineFlow(
