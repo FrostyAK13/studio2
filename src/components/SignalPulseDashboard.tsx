@@ -1,8 +1,9 @@
+
 "use client"
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { format } from 'date-fns';
-import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -212,10 +213,13 @@ export default function SignalPulseDashboard() {
           description: "Check your Telegram chat for the confirmation message.",
         });
       } else {
+        const isPermissionError = result.error?.includes('need administrator rights');
         toast({
           variant: "destructive",
           title: "Test Failed",
-          description: result.error || "Could not reach Telegram API.",
+          description: isPermissionError 
+            ? "Your bot needs 'Administrator' rights with 'Post Messages' enabled in this channel."
+            : result.error || "Could not reach Telegram API.",
         });
       }
     } catch (e: any) {
@@ -313,11 +317,11 @@ export default function SignalPulseDashboard() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase">Bot Token</label>
-                    <Input type="password" value={botToken} onChange={(e) => setBotToken(e.target.value)} className="bg-slate-50 border-none shadow-sm h-10 text-xs" />
+                    <Input type="password" placeholder="123456:ABC..." value={botToken} onChange={(e) => setBotToken(e.target.value)} className="bg-slate-50 border-none shadow-sm h-10 text-xs" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase">Chat ID</label>
-                    <Input value={chatId} onChange={(e) => setChatId(e.target.value)} className="bg-slate-50 border-none shadow-sm h-10 text-xs" />
+                    <Input placeholder="-100..." value={chatId} onChange={(e) => setChatId(e.target.value)} className="bg-slate-50 border-none shadow-sm h-10 text-xs" />
                   </div>
                 </div>
                 
@@ -341,7 +345,14 @@ export default function SignalPulseDashboard() {
               </div>
 
               <div className="space-y-4">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase">Telegram Live Preview (Text Only)</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Telegram Live Preview (Text Only)</label>
+                  {chatId.startsWith('-100') && (
+                    <Badge variant="outline" className="text-[8px] border-amber-200 text-amber-600 bg-amber-50 gap-1 uppercase">
+                      <AlertCircle className="h-2 w-2" /> Channel Mode Detected
+                    </Badge>
+                  )}
+                </div>
                 <div className="bg-[#1c2431] p-6 rounded-[2rem] shadow-2xl h-full border border-white/5 relative">
                   <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-emerald-400">
                     {previewContent}
