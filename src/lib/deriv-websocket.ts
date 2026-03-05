@@ -36,19 +36,31 @@ class DerivWebsocket {
         const rawData = msg.data;
         if (typeof rawData !== 'string') return;
 
+        // CRITICAL: Extract the raw quote string BEFORE parsing as JSON.
+        // JSON.parse() strips trailing zeros, which breaks last-digit analysis.
+        let rawQuote = "";
+        
+        // 1. Find the tick object content
+        const tickMatch = rawData.match(/"tick"\s*:\s*\{([^}]+)\}/);
+        if (tickMatch && tickMatch[1]) {
+          const tickContent = tickMatch[1];
+          // 2. Find the quote within the tick object
+          const quoteMatch = tickContent.match(/"quote"\s*:\s*(-?\d+\.?\d*)/);
+          if (quoteMatch && quoteMatch[1]) {
+            rawQuote = quoteMatch[1];
+          }
+        }
+
         const data = JSON.parse(rawData);
 
         if (data.msg_type === 'tick' && data.tick) {
           const symbol = data.tick.symbol;
           
-          // CRITICAL: Extract the quote as a string directly from the raw JSON string 
-          // to preserve trailing zeros (e.g., "10.50" instead of 10.5)
-          // We look for the exact "quote":123.450 portion of the message
-          let rawQuote = data.tick.quote.toString();
-          const quoteRegex = /"quote"\s*:\s*([\d.]+)/;
-          const match = rawData.match(quoteRegex);
-          if (match && match[1]) {
-            rawQuote = match[1];
+          // Fallback if regex failed, using pip_size if available
+          if (!rawQuote) {
+            rawQuote = data.tick.pip_size !== undefined 
+              ? data.tick.quote.toFixed(data.tick.pip_size) 
+              : data.tick.quote.toString();
           }
 
           const tick: Tick = {
