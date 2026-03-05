@@ -1,4 +1,3 @@
-
 /**
  * @fileOverview Shared Technical Analysis Strategies for SignalPulse.
  * This logic is used by both the Client Engine and the Server-side Cron Engine.
@@ -15,6 +14,7 @@ export interface StrategyResult {
 export const SignalStrategies = {
   /**
    * Over / Under Strategy: Requires a 4-digit confirmation streak.
+   * Enhanced rationale provides deeper technical context.
    */
   evaluateOverUnder: (digits: number[]): StrategyResult | null => {
     if (digits.length < 4) return null;
@@ -25,14 +25,14 @@ export const SignalStrategies = {
       return {
         type: 'OVER 2',
         lastDigit,
-        rationale: "Bullish precision: 4 consecutive digits above 2 confirmed on high-volatility stream."
+        rationale: `Precision Alert: Detected a sequence of 4 consecutive digits [${last4.join(', ')}] all exceeding the threshold of 2. This statistical anomaly indicates a strong localized 'Over' trend on the high-volatility stream.`
       };
     }
     if (last4.every(d => d < 7)) {
       return {
         type: 'UNDER 7',
         lastDigit,
-        rationale: "Bearish precision: 4 consecutive digits below 7 confirmed on high-volatility stream."
+        rationale: `Precision Alert: Detected a sequence of 4 consecutive digits [${last4.join(', ')}] all remaining below the threshold of 7. This mathematical cluster confirms a high-probability 'Under' bias in the current tick stream.`
       };
     }
     return null;
@@ -53,14 +53,14 @@ export const SignalStrategies = {
       return {
         type: 'RISE',
         lastDigit,
-        rationale: "Aggressive bullish momentum: 5 consecutive higher ticks detected on trend line."
+        rationale: `Momentum Breakout: 5 consecutive higher ticks detected. Trend line analysis shows consistent bullish pressure with zero retracement in the immediate tick window.`
       };
     }
     if (isFalling) {
       return {
         type: 'FALL',
         lastDigit,
-        rationale: "Aggressive bearish momentum: 5 consecutive lower ticks detected on trend line."
+        rationale: `Momentum Breakout: 5 consecutive lower ticks detected. Trend line analysis confirms aggressive bearish liquidation with zero upward correction in the immediate tick window.`
       };
     }
     return null;
@@ -78,14 +78,14 @@ export const SignalStrategies = {
       return {
         type: 'EVEN',
         lastDigit,
-        rationale: "Mathematical parity streak: 4 consecutive EVEN digits detected."
+        rationale: `Parity Sequence: Mathematical streak of 4 consecutive EVEN digits [${last4.join(', ')}]. High-fidelity parity sync detected.`
       };
     }
     if (last4.every(d => d % 2 !== 0)) {
       return {
         type: 'ODD',
         lastDigit,
-        rationale: "Mathematical parity streak: 4 consecutive ODD digits detected."
+        rationale: `Parity Sequence: Mathematical streak of 4 consecutive ODD digits [${last4.join(', ')}]. High-fidelity parity sync detected.`
       };
     }
     return null;

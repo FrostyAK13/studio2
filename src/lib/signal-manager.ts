@@ -1,4 +1,3 @@
-
 import { SignalStrategies } from './strategies';
 
 export interface Signal {
@@ -17,8 +16,7 @@ export interface Signal {
 }
 
 const STORAGE_KEY = 'signalpulse_signals';
-const LAST_SIGNAL_TIMES = 'signalpulse_last_times';
-const GLOBAL_COOLDOWN_KEY = 'signalpulse_global_cooldown';
+const LAST_BUCKET_KEY = 'signalpulse_last_bucket';
 
 const digitHistory: Record<string, number[]> = {};
 const tickHistory: Record<string, number[]> = {};
@@ -30,14 +28,6 @@ export const SignalManager = {
     }
     
     const signals = SignalManager.getSignals();
-    const lastSignal = signals[0];
-    if (lastSignal && 
-        lastSignal.symbol === signal.symbol && 
-        lastSignal.type === signal.type &&
-        Date.now() - new Date(lastSignal.timestamp).getTime() < 10000) {
-      return lastSignal;
-    }
-
     const newSignal: Signal = {
       ...signal,
       id: Math.random().toString(36).substring(2, 9),
@@ -63,32 +53,28 @@ export const SignalManager = {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   },
 
-  shouldProcessSignal: (symbol: string, strategy: string, intervalMinutes: number, isScanner: boolean): boolean => {
+  /**
+   * Aligns signal processing to standard clock intervals (e.g., :00, :05, :10).
+   */
+  shouldProcessStandardInterval: (intervalMinutes: number): boolean => {
     if (typeof window === 'undefined') return false;
     
-    const now = Date.now();
-    const intervalMs = intervalMinutes * 60 * 1000;
+    const now = new Date();
+    const currentMinute = now.getMinutes();
+    const currentSeconds = now.getSeconds();
 
-    if (isScanner) {
-      const lastGlobal = parseInt(localStorage.getItem(GLOBAL_COOLDOWN_KEY) || '0');
-      if (now - lastGlobal >= intervalMs) {
-        localStorage.setItem(GLOBAL_COOLDOWN_KEY, now.toString());
-        return true;
-      }
-      return false;
-    } else {
-      const storedTimes = localStorage.getItem(LAST_SIGNAL_TIMES);
-      const times = storedTimes ? JSON.parse(storedTimes) : {};
-      const key = `${symbol}_${strategy}`;
-      const lastTime = times[key] || 0;
+    // Check if we are at a standard interval (e.g., minute 5, 10, 15...)
+    // We allow a small 15-second window to catch the signal at the start of the interval
+    if (currentMinute % intervalMinutes === 0 && currentSeconds < 15) {
+      const bucketId = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}-${currentMinute}`;
+      const lastBucket = localStorage.getItem(LAST_BUCKET_KEY);
       
-      if (now - lastTime >= intervalMs) {
-        times[key] = now;
-        localStorage.setItem(LAST_SIGNAL_TIMES, JSON.stringify(times));
+      if (lastBucket !== bucketId) {
+        localStorage.setItem(LAST_BUCKET_KEY, bucketId);
         return true;
       }
-      return false;
     }
+    return false;
   },
 
   processSignalsFromData: (
@@ -120,7 +106,8 @@ export const SignalManager = {
     if (digitHistory[symbol].length > 10) digitHistory[symbol].shift();
     if (tickHistory[symbol].length > 10) tickHistory[symbol].shift();
 
-    if (!SignalManager.shouldProcessSignal(symbol, strategy, intervalMinutes, isScanner)) {
+    // Force standard interval check
+    if (!SignalManager.shouldProcessStandardInterval(intervalMinutes)) {
       return null;
     }
     

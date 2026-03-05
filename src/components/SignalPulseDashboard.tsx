@@ -1,8 +1,7 @@
-
 "use client"
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { format } from 'date-fns';
+import { format, addMinutes, subSeconds } from 'date-fns';
 import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings, Play, Square, Database, Server } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -232,7 +231,7 @@ export default function SignalPulseDashboard() {
         runs: 1,
         template,
         time: format(new Date(), 'HH:mm:ss'),
-        rationale: "Connection test successful. Bot is online and ready."
+        rationale: "Connection test successful. Bot is online and ready for high-fidelity signal dispatch."
       });
 
       if (result.success) {
@@ -255,13 +254,41 @@ export default function SignalPulseDashboard() {
     toast({ title: "Settings Saved", description: "FrostyTraders bot configuration updated." });
   };
 
-  const toggleEngine = () => {
-    setIsEngineActive(!isEngineActive);
+  const toggleEngine = async () => {
+    const newState = !isEngineActive;
+    setIsEngineActive(newState);
+    
+    if (newState && botToken && chatId) {
+      // Send Pulse Confirmation to Channel
+      const nextTime = format(addMinutes(new Date(), 1), 'HH:mm'); // Mock next sync time
+      await dispatchSignalToTelegram({
+        botToken: botToken.trim(),
+        chatId: chatId.trim(),
+        symbol: "SYSTEM STATUS",
+        strategy: "ENGINE INITIALIZATION",
+        type: "ACTIVE",
+        price: "0",
+        template: `🚀 <b>FROSTYTRADERS – ENGINE PULSE</b>
+
+📊 <b>Status:</b> ACTIVE
+🤖 <b>Node:</b> GOD FATHER 24/7 SCANNER
+⏱ <b>Interval Sync:</b> Standard ${timeframe} Windows
+🎯 <b>Monitoring:</b> All Volatility Indices
+
+📝 <b>System Note:</b>
+The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring for high-probability signals aligned to standard clock intervals (:00, :05, :10...).
+
+🔗 <a href="https://deriv.com/signup?sidc=808C8BC1-CA13-4AE4-83EE-0A6513B55687&utm_campaign=dynamicworks&utm_medium=affiliate&utm_source=CU31372"><b>Create a Deriv Trading Account</b></a>`,
+        time: format(new Date(), 'HH:mm:ss'),
+        rationale: "Engine heart-beat initialized."
+      });
+    }
+
     toast({
-      title: !isEngineActive ? "Engine Started" : "Engine Stopped",
-      description: !isEngineActive 
-        ? (symbol === 'ALL_MARKETS' ? "Multi-Market Engine scanning for 1 high-quality signal per interval." : "Monitoring selected market 24/7.")
-        : "Automated polling paused.",
+      title: newState ? "Engine Pulse Active" : "Engine Pulse Stopped",
+      description: newState 
+        ? "Standard clock intervals synchronized. Scanning for high-probability entries."
+        : "Automated monitoring suspended.",
     });
   };
 
@@ -279,7 +306,7 @@ export default function SignalPulseDashboard() {
     content = content.replace(/{recovery}/g, "Martingale");
     content = content.replace(/{confidence}/g, "98%");
     content = content.replace(/{contact}/g, "@FrostyTradersSupport");
-    content = content.replace(/{notes}/g, "High-probability streak detected on 4 consecutive digits.");
+    content = content.replace(/{notes}/g, "Precision Alert: Detected a sequence of 4 consecutive digits [5, 6, 8, 9] all exceeding threshold 2. High-probability trend confirmed.");
     return content.replace(/<[^>]*>?/gm, '');
   }, [template, lastDigit, timeframe]);
 
@@ -293,12 +320,12 @@ export default function SignalPulseDashboard() {
             <Bot className="h-8 w-8 text-accent" />
             SignalPulse <span className="text-accent uppercase font-black">FrostyTraders</span>
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm font-medium">GOD FATHER 24/7 Precision Multi-Market Scanning Engine</p>
+          <p className="text-muted-foreground mt-1 text-sm font-medium">GOD FATHER 24/7 Precision Standard-Time Sync Engine</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="px-3 py-1 bg-white flex gap-2 items-center shadow-sm text-[10px] font-bold text-primary border-primary/20">
             <Server className="h-3 w-3" />
-            SERVER ENGINE ACTIVE
+            SERVER NODE CONNECTED
           </Badge>
           <Button variant="outline" size="sm" onClick={() => setShowSettings(!showSettings)} className="gap-2 text-xs font-bold bg-white border-accent/20 shadow-sm">
             <Settings className="h-4 w-4 text-accent" />
@@ -411,10 +438,10 @@ export default function SignalPulseDashboard() {
                   </div>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl border border-border/50 text-center">
-                  <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Status</p>
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Standard Sync</p>
                   <div className="flex items-center justify-center gap-1">
-                    <div className={cn("w-2 h-2 rounded-full", isEngineActive ? "bg-emerald-500 animate-pulse" : "bg-slate-300")} />
-                    <span className="text-[10px] font-black uppercase">{isEngineActive ? "SCANNING" : "IDLE"}</span>
+                    <Clock className="h-3 w-3 text-accent" />
+                    <span className="text-[10px] font-black uppercase tabular-nums">:{format(new Date(), 'mm')} Bucket</span>
                   </div>
                 </div>
               </div>
@@ -444,7 +471,7 @@ export default function SignalPulseDashboard() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase text-accent">Frequency (1 Signal Per)</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase text-accent">Standard Interval</label>
                 <Select value={timeframe} onValueChange={setTimeframe} disabled={isEngineActive}>
                   <SelectTrigger className="h-10 text-xs font-bold border-accent/20 text-accent bg-white">
                     <SelectValue />
@@ -507,17 +534,17 @@ export default function SignalPulseDashboard() {
                       )}>
                         {signal.type.includes('OVER') || signal.type.includes('RISE') ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <div className="font-black text-sm flex items-center gap-2 text-primary">
                           {signal.type} @ {VOLATILITY_INDICES.find(v => v.value === signal.symbol)?.label || signal.symbol}
                           <Badge className="text-[8px] h-4 bg-primary/10 text-primary border-none uppercase">DISPATCHED</Badge>
                         </div>
-                        <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mt-0.5">
-                          {format(new Date(signal.timestamp), 'HH:mm:ss')} | Entry: {signal.lastDigit} | Rationale: {signal.rationale}
+                        <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mt-0.5 line-clamp-1">
+                          {format(new Date(signal.timestamp), 'HH:mm:ss')} | Entry: {signal.lastDigit} | {signal.rationale}
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right ml-4">
                       <div className="font-mono font-black text-lg text-primary">{signal.lastDigit}</div>
                       <div className={cn("text-[9px] font-bold uppercase tracking-widest flex items-center justify-end gap-1", signal.synced ? "text-emerald-600" : "text-amber-600")}>
                         {signal.synced ? <Zap className="h-2 w-2" /> : <Clock className="h-2 w-2" />}
@@ -531,10 +558,10 @@ export default function SignalPulseDashboard() {
                   <Activity className="h-12 w-12 text-accent animate-pulse" />
                   <div className="text-center">
                     <p className="text-[12px] font-black uppercase tracking-widest text-primary">
-                      GOD FATHER Scanner Initializing...
+                      GOD FATHER Scanner Syncing...
                     </p>
                     <p className="text-[10px] font-medium">
-                      Waiting for the first perfect signal in {timeframe} timeframe.
+                      Waiting for the next standard {timeframe} clock interval (:00, :05, :10...).
                     </p>
                   </div>
                 </div>
@@ -557,12 +584,12 @@ export default function SignalPulseDashboard() {
                 <p className="text-3xl font-mono font-bold text-primary">{signals.length}</p>
               </div>
               <div className="p-4 rounded-2xl bg-slate-50 border border-border/50">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Buffer Persistence</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Standard Bucket</p>
                 <div className="text-lg font-bold flex items-center gap-2">
                   <div className={cn("w-2 h-2 rounded-full", isOnline ? "bg-emerald-500" : "bg-rose-500")} />
                   {isOnline ? 'HEALTHY SYNC' : 'OFFLINE MODE'}
                 </div>
-                <p className="text-[9px] text-muted-foreground mt-1 font-bold uppercase">{unsyncedCount} signals in local storage</p>
+                <p className="text-[9px] text-muted-foreground mt-1 font-bold uppercase">:{format(new Date(), 'mm')} standard minute bucket</p>
               </div>
             </div>
           </CardContent>
@@ -573,7 +600,7 @@ export default function SignalPulseDashboard() {
           <CardContent className="pt-8 text-center h-full flex flex-col justify-center">
             <p className="text-[10px] font-bold uppercase opacity-70 tracking-widest">System Reliability</p>
             <div className="text-5xl font-mono font-bold tracking-tighter my-2">100%</div>
-            <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">FrostyTraders Automated Engine Active</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">FrostyTraders Clock-Sync Engine Active</p>
           </CardContent>
         </Card>
       </section>
