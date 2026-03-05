@@ -1,16 +1,16 @@
 "use client"
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { format, subMonths, parseISO } from 'date-fns';
-import { Search, TrendingUp, TrendingDown, RefreshCw, Activity, Layers, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings } from 'lucide-react';
+import { format } from 'date-fns';
+import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Textarea } from "@/components/ui/textarea";
-import { fetchHistoricalData, StockDataPoint } from '@/lib/stock-service';
+import { StockDataPoint } from '@/lib/stock-service';
 import { SignalManager, Signal } from '@/lib/signal-manager';
 import { derivWs, Tick } from '@/lib/deriv-websocket';
 import { useToast } from '@/hooks/use-toast';
@@ -52,11 +52,11 @@ const TIMEFRAMES = [
   { value: '1h', label: '1 Hour' },
 ];
 
-const DEFAULT_TEMPLATE = `🚨 FROSTYTRADERS - DERIV SIGNAL
+const DEFAULT_TEMPLATE = `🚨 FROSTYTRADERS – DERIV SIGNAL
 
 📊 Market: {market}
 🤖 Bot / Strategy: {strategy}
-🎯 Signal Direction: {signal}
+🎯 Signal : {signal}
 📲 Entry Point: {entry}
 ⏱ Signal Duration: {time}
 🔁 Number of Runs: {runs}
@@ -76,9 +76,9 @@ export default function SignalPulseDashboard() {
   const [strategy, setStrategy] = useState('RISE_FALL');
   const [timeframe, setTimeframe] = useState('5m');
   const [data, setData] = useState<StockDataPoint[]>([]);
-  const [loading, setLoading] = useState(false);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
   const [liveTick, setLiveTick] = useState<Tick | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [mounted, setMounted] = useState(false);
@@ -111,7 +111,6 @@ export default function SignalPulseDashboard() {
       window.addEventListener('online', handleOnline);
       window.addEventListener('offline', handleOffline);
 
-      // Auto-sync every minute for offline persistence
       const syncInterval = setInterval(handleSync, 30000);
 
       return () => {
@@ -180,7 +179,54 @@ export default function SignalPulseDashboard() {
         setSignals(SignalManager.getSignals());
       }
     } catch (e) {
-      console.error("Auto-dispatch failed, will retry in background", e);
+      console.error("Auto-dispatch failed", e);
+    }
+  };
+
+  const handleTestBot = async () => {
+    if (!botToken || !chatId) {
+      toast({
+        variant: "destructive",
+        title: "Configuration Missing",
+        description: "Please enter your Bot Token and Chat ID first.",
+      });
+      return;
+    }
+
+    setIsTesting(true);
+    try {
+      const result = await dispatchSignalToTelegram({
+        botToken,
+        chatId,
+        symbol: "TEST MARKET (VOL 100)",
+        strategy: "CONNECTION TEST",
+        type: "SUCCESS",
+        price: "1234.56",
+        runs: 1,
+        template,
+        time: format(new Date(), 'HH:mm:ss')
+      });
+
+      if (result.success) {
+        toast({
+          title: "Test Successful",
+          description: "Check your Telegram chat for the confirmation message.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Test Failed",
+          description: result.error || "Could not reach Telegram API.",
+        });
+      }
+    } catch (e: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: e.message,
+      });
+    } finally {
+      setIsTesting(false);
     }
   };
 
@@ -252,7 +298,7 @@ export default function SignalPulseDashboard() {
       </header>
 
       {showSettings && (
-        <Card className="border-accent/20 bg-white overflow-hidden shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300">
+        <Card className="border-accent/20 bg-white shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300">
           <CardHeader className="pb-2 border-b">
             <CardTitle className="text-lg flex items-center gap-2 uppercase tracking-tighter">
               <MessageSquare className="h-5 w-5 text-accent" />
@@ -304,10 +350,22 @@ export default function SignalPulseDashboard() {
             </div>
 
             <div className="flex items-center justify-between mt-8 pt-6 border-t gap-4">
-              <Button variant="ghost" size="sm" onClick={() => setTemplate(DEFAULT_TEMPLATE)} className="text-[10px] font-bold uppercase">
-                <RotateCcw className="h-3 w-3 mr-2" />
-                Reset Template
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setTemplate(DEFAULT_TEMPLATE)} className="text-[10px] font-bold uppercase">
+                  <RotateCcw className="h-3 w-3 mr-2" />
+                  Reset Template
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleTestBot} 
+                  disabled={isTesting}
+                  className="text-[10px] font-bold uppercase border-accent/40 text-accent hover:bg-accent/5"
+                >
+                  {isTesting ? <RefreshCw className="h-3 w-3 animate-spin mr-2" /> : <MessageSquare className="h-3 w-3 mr-2" />}
+                  Test Bot Connection
+                </Button>
+              </div>
               <div className="flex gap-2">
                 <Button variant="ghost" size="sm" onClick={() => setShowSettings(false)} className="text-[10px] font-bold uppercase">Cancel</Button>
                 <Button onClick={handleSaveSettings} className="bg-accent hover:bg-accent/90 h-10 px-8 text-[10px] font-bold uppercase shadow-lg shadow-accent/20">Save Settings</Button>
@@ -423,10 +481,7 @@ export default function SignalPulseDashboard() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                    <XAxis 
-                      dataKey="date" 
-                      hide
-                    />
+                    <XAxis dataKey="date" hide />
                     <YAxis 
                       domain={['auto', 'auto']} 
                       tick={{fontSize: 9, fontWeight: 600, fontFamily: 'monospace'}}
