@@ -1,14 +1,14 @@
 /**
  * @fileOverview Deriv WebSocket Service
  * Handles real-time connection to Deriv API for market ticks.
- * Extracts raw quote strings to preserve precision for last-digit analysis.
+ * Uses pip_size to ensure absolute precision, preserving trailing zeros for last-digit analysis.
  */
 
 export type Tick = {
   quote: number;
   epoch: number;
   symbol: string;
-  rawQuote: string; // The exact string from the wire to preserve trailing zeros
+  rawQuote: string; // The exact string with forced precision
 };
 
 class DerivWebsocket {
@@ -36,27 +36,22 @@ class DerivWebsocket {
         const rawData = msg.data;
         if (typeof rawData !== 'string') return;
 
-        // CRITICAL: Extract the raw quote string BEFORE parsing as JSON.
-        // JSON.parse() strips trailing zeros, which breaks last-digit analysis.
-        let rawQuote = "";
-        
-        // Use a more specific regex to find the quote within the tick object
-        // This looks for "quote": followed by digits/dots, capturing the exact literal string
-        const tickQuoteMatch = rawData.match(/"tick"\s*:\s*\{[^}]*"quote"\s*:\s*(\d+\.?\d*)/);
-        if (tickQuoteMatch && tickQuoteMatch[1]) {
-          rawQuote = tickQuoteMatch[1];
-        }
-
         const data = JSON.parse(rawData);
 
         if (data.msg_type === 'tick' && data.tick) {
           const symbol = data.tick.symbol;
+          const pipSize = data.tick.pip_size;
           
-          // Fallback if regex failed, using pip_size to reconstruct the intended precision
-          if (!rawQuote) {
-            rawQuote = data.tick.pip_size !== undefined 
-              ? data.tick.quote.toFixed(data.tick.pip_size) 
-              : data.tick.quote.toString();
+          /**
+           * CRITICAL: Deriv's pip_size defines the expected decimal precision.
+           * Standard JSON.parse() strips trailing zeros, so we use toFixed(pipSize)
+           * to reconstruct the string EXACTLY as it appears on the platform.
+           */
+          let rawQuote = "";
+          if (pipSize !== undefined) {
+            rawQuote = data.tick.quote.toFixed(pipSize);
+          } else {
+            rawQuote = data.tick.quote.toString();
           }
 
           const tick: Tick = {
