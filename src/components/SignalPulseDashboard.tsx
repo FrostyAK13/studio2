@@ -60,7 +60,7 @@ const DEFAULT_TEMPLATE = `🚨 <b>FROSTYTRADERS – DERIV SIGNAL</b>
 🤖 <b>Bot / Strategy:</b> {strategy}
 🎯 <b>Signal :</b> {signal}
 📲 <b>Entry Point:</b> {entry}
-⏱ <b>Signal Duration:</b> {time}
+⏱ <b>Signal Duration:</b> {timeframe}
 🔁 <b>Number of Runs:</b> {runs}
 🔄 <b>Recovery:</b> {recovery}
 💪 <b>Confidence Level:</b> {confidence}
@@ -112,7 +112,6 @@ export default function SignalPulseDashboard() {
       window.addEventListener('online', handleOnline);
       window.addEventListener('offline', handleOffline);
 
-      // 24/7 Sync Loop: Every 15 seconds try to clear the offline queue
       const syncInterval = setInterval(handleSync, 15000);
 
       return () => {
@@ -135,7 +134,8 @@ export default function SignalPulseDashboard() {
       return;
     }
 
-    const targets = symbol === 'ALL_MARKETS' 
+    const isScannerMode = symbol === 'ALL_MARKETS';
+    const targets = isScannerMode
       ? VOLATILITY_INDICES.filter(i => i.value !== 'ALL_MARKETS').map(i => i.value)
       : [symbol];
 
@@ -143,7 +143,6 @@ export default function SignalPulseDashboard() {
 
     targets.forEach(s => {
       const unsubscribe = derivWs.subscribe(s, (tick) => {
-        // Update live tick display (for ALL_MARKETS we just show the most recent incoming tick)
         setLiveTick(tick);
         
         const currentLastDigit = tick.rawQuote.substring(tick.rawQuote.length - 1);
@@ -155,7 +154,8 @@ export default function SignalPulseDashboard() {
           prevPricesRef.current[s] || null, 
           strategy,
           tick.rawQuote,
-          timeframe
+          timeframe,
+          isScannerMode
         );
 
         if (newSignal) {
@@ -175,8 +175,6 @@ export default function SignalPulseDashboard() {
 
   const handleAutoDispatch = async (signal: Signal) => {
     if (!botToken || !chatId) return;
-    
-    // If offline, it stays in the queue (localStorage) via SignalManager.saveSignal
     if (!navigator.onLine) return;
 
     const currentSymbolLabel = VOLATILITY_INDICES.find(i => i.value === signal.symbol)?.label || signal.symbol;
@@ -189,7 +187,8 @@ export default function SignalPulseDashboard() {
         symbol: currentSymbolLabel,
         strategy: currentStrategyLabel,
         type: signal.type,
-        price: signal.rawPrice || signal.price.toString(),
+        // USER REQUEST: Entry point should be the plain last digit
+        price: signal.lastDigit || signal.rawPrice || signal.price.toString(),
         runs: signal.runs || 1,
         template,
         time: format(new Date(), 'HH:mm:ss')
@@ -239,7 +238,7 @@ export default function SignalPulseDashboard() {
         symbol: "TEST MARKET (VOL 100)",
         strategy: "CONNECTION TEST",
         type: "SUCCESS",
-        price: "1234.56",
+        price: "5", // Example of a plain digit entry point
         runs: 1,
         template,
         time: format(new Date(), 'HH:mm:ss')
@@ -287,7 +286,7 @@ export default function SignalPulseDashboard() {
     toast({
       title: !isEngineActive ? "Engine Started" : "Engine Stopped",
       description: !isEngineActive 
-        ? (symbol === 'ALL_MARKETS' ? "GOD FATHER scanning all markets 24/7." : "GOD FATHER analysis active for selected market.")
+        ? (symbol === 'ALL_MARKETS' ? "GOD FATHER scanning all markets 24/7. 1 signal per timeframe." : "GOD FATHER analysis active for selected market.")
         : "Automated polling has been paused.",
     });
   };
@@ -299,8 +298,9 @@ export default function SignalPulseDashboard() {
     content = content.replace(/{market}/g, "Volatility 100 Index");
     content = content.replace(/{strategy}/g, "Rise / Fall");
     content = content.replace(/{signal}/g, "RISE");
-    content = content.replace(/{entry}/g, liveTick?.rawQuote || "9583.00");
+    content = content.replace(/{entry}/g, lastDigit || "5");
     content = content.replace(/{time}/g, format(new Date(), 'HH:mm:ss'));
+    content = content.replace(/{timeframe}/g, timeframe);
     content = content.replace(/{runs}/g, "1");
     content = content.replace(/{recovery}/g, "Martingale");
     content = content.replace(/{confidence}/g, "95%");
@@ -308,7 +308,7 @@ export default function SignalPulseDashboard() {
     content = content.replace(/{notes}/g, "Follow strict risk management.");
     
     return content.replace(/<[^>]*>?/gm, '');
-  }, [template, liveTick]);
+  }, [template, lastDigit, timeframe]);
 
   if (!mounted) return null;
 
@@ -369,7 +369,7 @@ export default function SignalPulseDashboard() {
                 <div className="p-4 bg-accent/5 rounded-xl border border-accent/10">
                   <p className="text-[10px] font-bold text-accent uppercase mb-2">Dynamic Tags:</p>
                   <div className="flex flex-wrap gap-2">
-                    {['{market}', '{strategy}', '{signal}', '{entry}', '{time}', '{runs}', '{recovery}', '{confidence}'].map(tag => (
+                    {['{market}', '{strategy}', '{signal}', '{entry}', '{time}', '{timeframe}', '{runs}', '{recovery}', '{confidence}'].map(tag => (
                       <Badge key={tag} variant="secondary" className="text-[9px] font-mono py-0">{tag}</Badge>
                     ))}
                   </div>
@@ -547,7 +547,7 @@ export default function SignalPulseDashboard() {
                       {symbol === 'ALL_MARKETS' ? 'Multi-Market Scanning Engine Active' : 'Engine Running'}
                     </p>
                     <p className="text-[10px] font-medium opacity-60">
-                      {symbol === 'ALL_MARKETS' ? `Scanning all Volatility Indices every ${timeframe}` : 'Processing Live Ticks 24/7'}
+                      {symbol === 'ALL_MARKETS' ? `Scanning all Volatility Indices | 1 Signal Per ${timeframe}` : 'Processing Live Ticks 24/7'}
                     </p>
                   </div>
                 </div>
@@ -596,7 +596,7 @@ export default function SignalPulseDashboard() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-mono font-bold text-sm tracking-tighter">{signal.rawPrice}</div>
+                      <div className="font-mono font-bold text-sm tracking-tighter">Entry: {signal.lastDigit}</div>
                       <div className={cn("text-[9px] font-bold uppercase tracking-widest flex items-center justify-end gap-1", signal.synced ? "text-emerald-600" : "text-amber-600")}>
                         {signal.synced ? <Zap className="h-2 w-2" /> : <Clock className="h-2 w-2" />}
                         {signal.synced ? 'Dispatched' : 'Queued (Offline)'}
@@ -649,3 +649,4 @@ export default function SignalPulseDashboard() {
     </div>
   );
 }
+

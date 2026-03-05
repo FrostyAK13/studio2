@@ -17,7 +17,7 @@ const DispatchInputSchema = z.object({
   symbol: z.string().describe('The market symbol.'),
   strategy: z.string().describe('The strategy name.'),
   type: z.string().describe('The specific signal type (direction).'),
-  price: z.string().describe('The execution price (Entry Point).'),
+  price: z.string().describe('The execution price (Plain Last Digit).'),
   runs: z.number().optional().describe('Number of runs.'),
   template: z.string().describe('The custom template string with placeholders.'),
   time: z.string().describe('The formatted local time.'),
@@ -54,15 +54,17 @@ const dispatchSignalFlow = ai.defineFlow(
     try {
       /**
        * Dynamically replace placeholders in the user-provided template.
-       * We use simple string replacement to give the user full control.
        */
       let message = input.template;
       message = message.replace(/{market}/g, input.symbol);
       message = message.replace(/{strategy}/g, input.strategy);
       message = message.replace(/{signal}/g, input.type);
-      message = message.replace(/{entry}/g, input.price);
+      message = message.replace(/{entry}/g, input.price); // This is now the plain last digit
       message = message.replace(/{time}/g, input.time);
       message = message.replace(/{runs}/g, input.runs?.toString() || "1");
+      
+      // Default timeframe logic if not provided in template
+      message = message.replace(/{timeframe}/g, "5m");
       
       // Handle additional static/optional fields with professional defaults
       message = message.replace(/{recovery}/g, "Martingale");
@@ -79,11 +81,8 @@ const dispatchSignalFlow = ai.defineFlow(
 
       const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
       
-      /**
-       * Execute fetch with a timeout to prevent Server Action hangs.
-       */
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(url, {
         method: 'POST',

@@ -15,6 +15,7 @@ export interface Signal {
 
 const STORAGE_KEY = 'signalpulse_signals';
 const LAST_SIGNAL_TIMES = 'signalpulse_last_times';
+const GLOBAL_COOLDOWN_KEY = 'signalpulse_global_cooldown';
 
 // Persistent history for pattern detection per symbol
 const digitHistory: Record<string, number[]> = {};
@@ -22,14 +23,12 @@ const digitHistory: Record<string, number[]> = {};
 export const SignalManager = {
   saveSignal: (signal: Omit<Signal, 'id' | 'timestamp' | 'synced'>): Signal => {
     if (typeof window === 'undefined') {
-       // Mock for non-browser environments if needed
        return { ...signal, id: 'mock', timestamp: new Date().toISOString(), synced: false };
     }
     
     const signals = SignalManager.getSignals();
     
     // Check if we already have a very recent signal for this symbol and type to avoid spamming
-    // This provides 24/7 stability by preventing duplicates from rapid ticks
     const lastSignal = signals[0];
     if (lastSignal && 
         lastSignal.symbol === signal.symbol && 
@@ -42,10 +41,10 @@ export const SignalManager = {
       ...signal,
       id: Math.random().toString(36).substring(2, 9),
       timestamp: new Date().toISOString(),
-      synced: false, // Starts as unsynced for the offline queue logic
+      synced: false,
     };
     
-    const updatedSignals = [newSignal, ...signals].slice(0, 100); // Maintain larger history for 24/7 view
+    const updatedSignals = [newSignal, ...signals].slice(0, 100);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSignals));
     return newSignal;
   },
@@ -65,24 +64,35 @@ export const SignalManager = {
 
   /**
    * Checks if enough time has passed based on the selected interval.
-   * This ensures 24/7 consistency across browser refreshes and handles multiple symbols.
+   * "1 market per timeframe" logic: If scanner is on, use a global cooldown.
+   * Otherwise use per-market cooldown.
    */
-  shouldProcessSignal: (symbol: string, strategy: string, intervalMinutes: number): boolean => {
+  shouldProcessSignal: (symbol: string, strategy: string, intervalMinutes: number, isScanner: boolean): boolean => {
     if (typeof window === 'undefined') return false;
-    const storedTimes = localStorage.getItem(LAST_SIGNAL_TIMES);
-    const times = storedTimes ? JSON.parse(storedTimes) : {};
-    const key = `${symbol}_${strategy}`;
-    const lastTime = times[key] || 0;
     
     const now = Date.now();
     const intervalMs = intervalMinutes * 60 * 1000;
-    
-    if (now - lastTime >= intervalMs) {
-      times[key] = now;
-      localStorage.setItem(LAST_SIGNAL_TIMES, JSON.stringify(times));
-      return true;
+
+    if (isScanner) {
+      const lastGlobal = parseInt(localStorage.getItem(GLOBAL_COOLDOWN_KEY) || '0');
+      if (now - lastGlobal >= intervalMs) {
+        localStorage.setItem(GLOBAL_COOLDOWN_KEY, now.toString());
+        return true;
+      }
+      return false;
+    } else {
+      const storedTimes = localStorage.getItem(LAST_SIGNAL_TIMES);
+      const times = storedTimes ? JSON.parse(storedTimes) : {};
+      const key = `${symbol}_${strategy}`;
+      const lastTime = times[key] || 0;
+      
+      if (now - lastTime >= intervalMs) {
+        times[key] = now;
+        localStorage.setItem(LAST_SIGNAL_TIMES, JSON.stringify(times));
+        return true;
+      }
+      return false;
     }
-    return false;
   },
 
   processSignalsFromData: (
@@ -92,12 +102,12 @@ export const SignalManager = {
     prevPrice: number | null,
     strategy: string,
     rawPrice: string,
-    intervalStr: string
+    intervalStr: string,
+    isScanner: boolean
   ): Signal | null => {
     const dVal = parseInt(lastDigit);
     if (isNaN(dVal)) return null;
 
-    // Convert interval string (e.g., '5m', '1h') to minutes
     let intervalMinutes = 5;
     if (intervalStr.endsWith('h')) {
       intervalMinutes = parseInt(intervalStr) * 60;
@@ -105,15 +115,14 @@ export const SignalManager = {
       intervalMinutes = parseInt(intervalStr) || 5;
     }
 
-    // Track digit history for pattern-based strategies per symbol
     if (!digitHistory[symbol]) digitHistory[symbol] = [];
     digitHistory[symbol].push(dVal);
     if (digitHistory[symbol].length > 10) digitHistory[symbol].shift();
 
     const history = digitHistory[symbol];
     
-    // Check if we should even look for a signal based on the timeframe for THIS specific symbol
-    if (!SignalManager.shouldProcessSignal(symbol, strategy, intervalMinutes)) {
+    // Check global or per-market interval cooldown
+    if (!SignalManager.shouldProcessSignal(symbol, strategy, intervalMinutes, isScanner)) {
       return null;
     }
     
@@ -132,7 +141,6 @@ export const SignalManager = {
 
       case 'EVEN_ODD':
         const isEven = dVal % 2 === 0;
-        // Even/Odd pattern detection (confirming 2-streak)
         if (history.length >= 2 && history[history.length-2] % 2 === (isEven ? 0 : 1)) {
            result = SignalManager.saveSignal({ 
             symbol, 
@@ -147,8 +155,6 @@ export const SignalManager = {
         break;
 
       case 'OVER_UNDER':
-        // HIGH PRECISION OVER 2 / UNDER 7 STRATEGY
-        // Requirement: 3 consecutive digits meeting the condition (streak confirm)
         if (history.length >= 3) {
           const last3 = history.slice(-3);
           const allOver2 = last3.every(d => d > 2);
@@ -162,7 +168,7 @@ export const SignalManager = {
               price: currentPrice, 
               rawPrice,
               lastDigit,
-              runs: 1, // Optimized for 1-run entry
+              runs: 1,
               interval: intervalStr
             });
           } else if (allUnder7) {
@@ -173,7 +179,7 @@ export const SignalManager = {
               price: currentPrice, 
               rawPrice,
               lastDigit,
-              runs: 1, // Optimized for 1-run entry
+              runs: 1,
               interval: intervalStr
             });
           }
