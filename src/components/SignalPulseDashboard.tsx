@@ -3,13 +3,12 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { format } from 'date-fns';
-import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings, AlertCircle, Play, Square, Database, Globe, History } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings, Play, Square, Database } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Textarea } from "@/components/ui/textarea";
 import { SignalManager, Signal } from '@/lib/signal-manager';
 import { derivWs, Tick } from '@/lib/deriv-websocket';
@@ -108,6 +107,7 @@ export default function SignalPulseDashboard() {
       window.addEventListener('online', handleOnline);
       window.addEventListener('offline', handleOffline);
 
+      // Dedicated 24/7 Sync Sentinel
       const syncInterval = setInterval(handleSync, 15000);
 
       return () => {
@@ -139,6 +139,7 @@ export default function SignalPulseDashboard() {
 
     targets.forEach(s => {
       const unsubscribe = derivWs.subscribe(s, (tick) => {
+        // Only update live tick display for the main selection or scanner head
         if (!isScannerMode || s === targets[0]) {
            setLiveTick(tick);
         }
@@ -173,7 +174,10 @@ export default function SignalPulseDashboard() {
 
   const handleAutoDispatch = async (signal: Signal) => {
     if (!botToken || !chatId) return;
-    if (!navigator.onLine) return;
+    if (!navigator.onLine) {
+       console.log("Offline: Signal queued in local pulse storage.");
+       return;
+    }
 
     const currentSymbolLabel = VOLATILITY_INDICES.find(i => i.value === signal.symbol)?.label || signal.symbol;
     const currentStrategyLabel = STRATEGIES.find(s => s.value === signal.strategy)?.label || signal.strategy;
@@ -185,10 +189,11 @@ export default function SignalPulseDashboard() {
         symbol: currentSymbolLabel,
         strategy: currentStrategyLabel,
         type: signal.type,
-        price: signal.lastDigit || "0",
+        price: signal.lastDigit || "0", // Plain last digit
         runs: signal.runs || 1,
         template,
-        time: format(new Date(), 'HH:mm:ss')
+        time: format(new Date(signal.timestamp), 'HH:mm:ss'),
+        rationale: signal.rationale
       });
 
       if (result.success) {
@@ -196,12 +201,13 @@ export default function SignalPulseDashboard() {
         setSignals(SignalManager.getSignals());
       }
     } catch (e) {
-      console.error("Auto-dispatch failed", e);
+      console.error("Auto-dispatch error", e);
     }
   };
 
   const handleSync = async () => {
     if (!navigator.onLine || isSyncing) return;
+    
     const currentSignals = SignalManager.getSignals();
     const unsynced = currentSignals.filter(s => !s.synced);
     if (unsynced.length === 0) return;
@@ -209,9 +215,9 @@ export default function SignalPulseDashboard() {
     setIsSyncing(true);
     try {
       for (const signal of unsynced) {
+        // Re-dispatch logic for buffered signals
         await handleAutoDispatch(signal);
       }
-      setSignals(SignalManager.getSignals());
     } finally {
       setIsSyncing(false);
     }
@@ -238,7 +244,8 @@ export default function SignalPulseDashboard() {
         price: lastDigit || "5",
         runs: 1,
         template,
-        time: format(new Date(), 'HH:mm:ss')
+        time: format(new Date(), 'HH:mm:ss'),
+        rationale: "Connection test successful. Bot is online and ready."
       });
 
       if (result.success) {
@@ -280,7 +287,7 @@ export default function SignalPulseDashboard() {
     toast({
       title: !isEngineActive ? "Engine Started" : "Engine Stopped",
       description: !isEngineActive 
-        ? (symbol === 'ALL_MARKETS' ? "Multi-Market Engine scanning for 1 signal per interval." : "Monitoring selected market 24/7.")
+        ? (symbol === 'ALL_MARKETS' ? "Multi-Market Engine scanning for 1 high-quality signal per interval." : "Monitoring selected market 24/7.")
         : "Automated polling paused.",
     });
   };
@@ -299,7 +306,7 @@ export default function SignalPulseDashboard() {
     content = content.replace(/{recovery}/g, "Martingale");
     content = content.replace(/{confidence}/g, "98%");
     content = content.replace(/{contact}/g, "@FrostyTradersSupport");
-    content = content.replace(/{notes}/g, "Bullish streak detected on last 3 digits.");
+    content = content.replace(/{notes}/g, "High-probability streak detected on 4 consecutive digits.");
     
     return content.replace(/<[^>]*>?/gm, '');
   }, [template, lastDigit, timeframe]);
@@ -312,9 +319,9 @@ export default function SignalPulseDashboard() {
         <div>
           <h1 className="text-3xl font-bold text-primary flex items-center gap-2">
             <Bot className="h-8 w-8 text-accent" />
-            SignalPulse <span className="text-accent uppercase">FrostyTraders</span>
+            SignalPulse <span className="text-accent uppercase font-black">FrostyTraders</span>
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm font-medium">GOD FATHER 24/7 Multi-Market Scanning Engine</p>
+          <p className="text-muted-foreground mt-1 text-sm font-medium">GOD FATHER 24/7 Precision Multi-Market Scanning Engine</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowSettings(!showSettings)} className="gap-2 text-xs font-bold bg-white border-accent/20 shadow-sm">
@@ -331,7 +338,7 @@ export default function SignalPulseDashboard() {
       {showSettings && (
         <Card className="border-accent/20 bg-white shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300">
           <CardHeader className="pb-2 border-b">
-            <CardTitle className="text-lg flex items-center gap-2 uppercase tracking-tighter">
+            <CardTitle className="text-lg flex items-center gap-2 uppercase tracking-tighter font-black">
               <MessageSquare className="h-5 w-5 text-accent" />
               Signal Message Format
             </CardTitle>

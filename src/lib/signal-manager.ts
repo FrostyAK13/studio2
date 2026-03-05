@@ -20,6 +20,7 @@ const GLOBAL_COOLDOWN_KEY = 'signalpulse_global_cooldown';
 
 // Persistent history for pattern detection per symbol
 const digitHistory: Record<string, number[]> = {};
+const tickHistory: Record<string, number[]> = {};
 
 export const SignalManager = {
   saveSignal: (signal: Omit<Signal, 'id' | 'timestamp' | 'synced'>): Signal => {
@@ -34,7 +35,7 @@ export const SignalManager = {
     if (lastSignal && 
         lastSignal.symbol === signal.symbol && 
         lastSignal.type === signal.type &&
-        Date.now() - new Date(lastSignal.timestamp).getTime() < 5000) {
+        Date.now() - new Date(lastSignal.timestamp).getTime() < 10000) {
       return lastSignal;
     }
 
@@ -111,11 +112,18 @@ export const SignalManager = {
       intervalMinutes = parseInt(intervalStr) || 5;
     }
 
+    // Initialize histories
     if (!digitHistory[symbol]) digitHistory[symbol] = [];
+    if (!tickHistory[symbol]) tickHistory[symbol] = [];
+    
     digitHistory[symbol].push(dVal);
+    tickHistory[symbol].push(currentPrice);
+    
     if (digitHistory[symbol].length > 10) digitHistory[symbol].shift();
+    if (tickHistory[symbol].length > 10) tickHistory[symbol].shift();
 
-    const history = digitHistory[symbol];
+    const hDigits = digitHistory[symbol];
+    const hTicks = tickHistory[symbol];
     
     // Check global or per-market interval cooldown
     if (!SignalManager.shouldProcessSignal(symbol, strategy, intervalMinutes, isScanner)) {
@@ -126,81 +134,79 @@ export const SignalManager = {
 
     switch (strategy) {
       case 'RISE_FALL':
-        if (prevPrice !== null) {
-          if (currentPrice > prevPrice) {
+        // High Precision: Require a 5-tick continuous trend
+        if (hTicks.length >= 5) {
+          const last5 = hTicks.slice(-5);
+          const isRising = last5.every((val, i) => i === 0 || val > last5[i - 1]);
+          const isFalling = last5.every((val, i) => i === 0 || val < last5[i - 1]);
+
+          if (isRising) {
             result = SignalManager.saveSignal({ 
               symbol, type: 'RISE', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr,
-              rationale: "Bullish price movement detected on current tick."
+              rationale: "Sharp bullish momentum: 5 consecutive higher ticks detected."
             });
-          } else if (currentPrice < prevPrice) {
+          } else if (isFalling) {
             result = SignalManager.saveSignal({ 
               symbol, type: 'FALL', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr,
-              rationale: "Bearish price movement detected on current tick."
+              rationale: "Sharp bearish momentum: 5 consecutive lower ticks detected."
             });
           }
         }
         break;
 
       case 'EVEN_ODD':
-        const isEven = dVal % 2 === 0;
-        if (history.length >= 2 && history[history.length-2] % 2 === (isEven ? 0 : 1)) {
-           result = SignalManager.saveSignal({ 
-            symbol, 
-            type: isEven ? 'EVEN' : 'ODD', 
-            strategy, 
-            price: currentPrice, 
-            rawPrice,
-            lastDigit,
-            interval: intervalStr,
-            rationale: `Double ${isEven ? 'Even' : 'Odd'} digit sequence detected.`
-          });
+        // High Probability: Wait for a 4-digit streak of the same parity
+        if (hDigits.length >= 4) {
+          const last4 = hDigits.slice(-4);
+          const allEven = last4.every(d => d % 2 === 0);
+          const allOdd = last4.every(d => d % 2 !== 0);
+
+          if (allEven) {
+            result = SignalManager.saveSignal({ 
+              symbol, type: 'EVEN', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr,
+              rationale: "Strong parity streak: 4 consecutive EVEN digits confirmed."
+            });
+          } else if (allOdd) {
+            result = SignalManager.saveSignal({ 
+              symbol, type: 'ODD', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr,
+              rationale: "Strong parity streak: 4 consecutive ODD digits confirmed."
+            });
+          }
         }
         break;
 
       case 'OVER_UNDER':
-        if (history.length >= 3) {
-          const last3 = history.slice(-3);
-          const allOver2 = last3.every(d => d > 2);
-          const allUnder7 = last3.every(d => d < 7);
+        // Professional Edge: Use a 4-digit safety streak
+        if (hDigits.length >= 4) {
+          const last4 = hDigits.slice(-4);
+          const allOver2 = last4.every(d => d > 2);
+          const allUnder7 = last4.every(d => d < 7);
 
           if (allOver2) {
             result = SignalManager.saveSignal({ 
-              symbol, 
-              type: 'OVER 2', 
-              strategy, 
-              price: currentPrice, 
-              rawPrice,
-              lastDigit,
-              runs: 1,
-              interval: intervalStr,
-              rationale: "Strong bullish momentum: last 3 digits confirmed > 2."
+              symbol, type: 'OVER 2', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr, runs: 1,
+              rationale: "Bullish pattern confirmed: 4 consecutive digits above 2."
             });
           } else if (allUnder7) {
             result = SignalManager.saveSignal({ 
-              symbol, 
-              type: 'UNDER 7', 
-              strategy, 
-              price: currentPrice, 
-              rawPrice,
-              lastDigit,
-              runs: 1,
-              interval: intervalStr,
-              rationale: "Strong bearish momentum: last 3 digits confirmed < 7."
+              symbol, type: 'UNDER 7', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr, runs: 1,
+              rationale: "Bearish pattern confirmed: 4 consecutive digits below 7."
             });
           }
         }
         break;
 
       case 'MATCHES_DIFFERS':
+        // Reversal/Breakout: Detect extended zero-absence or zero-hit
         if (dVal === 0) {
           result = SignalManager.saveSignal({ 
             symbol, type: 'MATCH 0', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr,
-            rationale: "Zero match detected. High volatility reversal potential."
+            rationale: "Zero hit detected. High reversal probability on current volatility."
           });
-        } else if (history.length >= 4 && history.slice(-4).every(d => d !== 0)) {
+        } else if (hDigits.length >= 6 && hDigits.slice(-6).every(d => d !== 0)) {
           result = SignalManager.saveSignal({ 
             symbol, type: 'DIFFERS 0', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr,
-            rationale: "Extended zero-absent sequence detected (4 ticks)."
+            rationale: "Extended zero-absence detected (6 ticks). Low probability of zero hit next."
           });
         }
         break;
