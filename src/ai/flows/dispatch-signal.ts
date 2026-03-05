@@ -3,6 +3,7 @@
  * @fileOverview FROSTYTRADERS Signal Dispatcher Flow.
  * 
  * Uses Genkit to format market signals using a customizable template exactly as requested.
+ * Uses HTML parse mode for Telegram to ensure high reliability with URLs and special characters.
  */
 
 import { ai } from '@/ai/genkit';
@@ -40,8 +41,7 @@ const dispatchSignalFlow = ai.defineFlow(
     try {
       /**
        * Dynamically replace placeholders in the user-provided template.
-       * This gives the user 100% control over the message format while the system
-       * provides the high-precision data.
+       * We use simple string replacement to give the user full control.
        */
       let message = input.template;
       message = message.replace(/{market}/g, input.symbol);
@@ -50,35 +50,42 @@ const dispatchSignalFlow = ai.defineFlow(
       message = message.replace(/{entry}/g, input.price);
       message = message.replace(/{time}/g, input.time);
       message = message.replace(/{runs}/g, input.runs?.toString() || "1");
-      message = message.replace(/{symbol}/g, input.symbol);
       
-      // Handle remaining placeholders with defaults if needed
+      // Handle additional static/optional fields
       message = message.replace(/{recovery}/g, "Martingale");
       message = message.replace(/{confidence}/g, "98%");
       message = message.replace(/{contact}/g, "@FrostyTradersSupport");
       message = message.replace(/{notes}/g, "Follow strict risk management.");
 
-      const url = `https://api.telegram.org/bot${input.botToken}/sendMessage`;
+      const botToken = input.botToken.trim();
+      const chatId = input.chatId.trim();
+
+      const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+      
+      // Use HTML parse mode as it is much more robust than Markdown for URLs with underscores
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: input.chatId,
+          chat_id: chatId,
           text: message,
-          // Use Markdown to ensure links like the referral link work correctly
-          parse_mode: 'Markdown',
+          parse_mode: 'HTML',
+          disable_web_page_preview: false
         }),
       });
 
       const result = await response.json();
 
       if (!result.ok) {
-        return { success: false, error: result.description };
+        return { 
+          success: false, 
+          error: `Telegram Error: ${result.description} (Code: ${result.error_code})` 
+        };
       }
 
       return { success: true, messageId: result.result.message_id.toString() };
     } catch (e: any) {
-      return { success: false, error: e.message };
+      return { success: false, error: `System Error: ${e.message}` };
     }
   }
 );

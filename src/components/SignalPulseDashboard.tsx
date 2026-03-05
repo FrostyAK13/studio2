@@ -52,24 +52,23 @@ const TIMEFRAMES = [
   { value: '1h', label: '1 Hour' },
 ];
 
-const DEFAULT_TEMPLATE = `🚨 FROSTYTRADERS – DERIV SIGNAL
+const DEFAULT_TEMPLATE = `🚨 <b>FROSTYTRADERS – DERIV SIGNAL</b>
 
-📊 Market: {market}
-🤖 Bot / Strategy: {strategy}
-🎯 Signal : {signal}
-📲 Entry Point: {entry}
-⏱ Signal Duration: {time}
-🔁 Number of Runs: {runs}
-🔄 Recovery: {recovery}
-💪 Confidence Level: {confidence}
+📊 <b>Market:</b> {market}
+🤖 <b>Bot / Strategy:</b> {strategy}
+🎯 <b>Signal :</b> {signal}
+📲 <b>Entry Point:</b> {entry}
+⏱ <b>Signal Duration:</b> {time}
+🔁 <b>Number of Runs:</b> {runs}
+🔄 <b>Recovery:</b> {recovery}
+💪 <b>Confidence Level:</b> {confidence}
 
-🚫 Contact: {contact}
+🚫 <b>Contact:</b> {contact}
 
-📝 Additional Notes:
+📝 <b>Additional Notes:</b>
 {notes}
 
-🔗 Create a Deriv Trading Account:
-https://deriv.com/signup?sidc=808C8BC1-CA13-4AE4-83EE-0A6513B55687&utm_campaign=dynamicworks&utm_medium=affiliate&utm_source=CU31372`;
+🔗 <a href="https://deriv.com/signup?sidc=808C8BC1-CA13-4AE4-83EE-0A6513B55687&utm_campaign=dynamicworks&utm_medium=affiliate&utm_source=CU31372"><b>Create a Deriv Trading Account</b></a>`;
 
 export default function SignalPulseDashboard() {
   const [symbol, setSymbol] = useState('R_100');
@@ -270,7 +269,9 @@ export default function SignalPulseDashboard() {
     content = content.replace(/{confidence}/g, "95%");
     content = content.replace(/{contact}/g, "@FrostyTradersSupport");
     content = content.replace(/{notes}/g, "Wait for 3-digit streak.");
-    return content;
+    
+    // For local preview, we strip HTML tags to make it readable in the pre tag
+    return content.replace(/<[^>]*>?/gm, '');
   }, [template, liveTick]);
 
   if (!mounted) return null;
@@ -304,7 +305,7 @@ export default function SignalPulseDashboard() {
               <MessageSquare className="h-5 w-5 text-accent" />
               Signal Message Format
             </CardTitle>
-            <CardDescription className="text-xs">Customize your professional 24/7 signal template</CardDescription>
+            <CardDescription className="text-xs">Customize your professional 24/7 signal template (supports HTML)</CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -321,7 +322,7 @@ export default function SignalPulseDashboard() {
                 </div>
                 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Message Template Editor</label>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Message Template Editor (HTML)</label>
                   <Textarea 
                     value={template} 
                     onChange={(e) => setTemplate(e.target.value)}
@@ -340,7 +341,7 @@ export default function SignalPulseDashboard() {
               </div>
 
               <div className="space-y-4">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase">Telegram Live Preview</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">Telegram Live Preview (Text Only)</label>
                 <div className="bg-[#1c2431] p-6 rounded-[2rem] shadow-2xl h-full border border-white/5 relative">
                   <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-emerald-400">
                     {previewContent}
