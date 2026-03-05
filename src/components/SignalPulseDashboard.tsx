@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { format, addMinutes } from 'date-fns';
+import { format } from 'date-fns';
 import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings, Play, Square, Database, Server } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -478,7 +478,7 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {TIMEFRAMES.map(t => <SelectItem key={t.value} value={t.label}>{t.label}</SelectItem>)}
+                    {TIMEFRAMES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
