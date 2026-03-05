@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { format, subMonths, parseISO } from 'date-fns';
-import { Search, TrendingUp, TrendingDown, RefreshCw, Activity, Layers, Zap, Send, Settings, Bot, Target, Hash, ArrowUpDown, Clock, Info, MessageSquare } from 'lucide-react';
+import { Search, TrendingUp, TrendingDown, RefreshCw, Activity, Layers, Zap, Send, Settings, Bot, Target, Hash, ArrowUpDown, Clock, Info, MessageSquare, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { fetchHistoricalData, StockDataPoint } from '@/lib/stock-service';
 import { SignalManager, Signal } from '@/lib/signal-manager';
 import { derivWs, Tick } from '@/lib/deriv-websocket';
@@ -19,9 +20,12 @@ import { dispatchSignalToTelegram } from '@/ai/flows/dispatch-signal';
 
 const VOLATILITY_INDICES = [
   { value: 'R_10', label: 'Volatility 10 Index' },
+  { value: 'R_15', label: 'Volatility 15 (1s) Index' },
   { value: 'R_25', label: 'Volatility 25 Index' },
+  { value: 'R_30', label: 'Volatility 30 (1s) Index' },
   { value: 'R_50', label: 'Volatility 50 Index' },
   { value: 'R_75', label: 'Volatility 75 Index' },
+  { value: 'R_90', label: 'Volatility 90 (1s) Index' },
   { value: 'R_100', label: 'Volatility 100 Index' },
   { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
   { value: '1HZ15V', label: 'Volatility 15 (1s) Index' },
@@ -40,6 +44,25 @@ const STRATEGIES = [
   { value: 'MATCHES_DIFFERS', label: 'Matches / Differs', icon: Zap },
 ];
 
+const DEFAULT_TEMPLATE = `🚨 FROSTYTRADERS - DERIV SIGNAL
+
+📊 Market: {market}
+🤖 Bot / Strategy: {strategy}
+🎯 Signal Direction: {signal}
+📲 Entry Point: {entry}
+⏱ Signal Duration: {time}
+🔁 Number of Runs: {runs}
+🔄 Recovery: {recovery}
+💪 Confidence Level: {confidence}
+
+🚫 Contact: {contact}
+
+📝 Additional Notes (Optional):
+{notes}
+
+🔗 Create a Deriv Developer Account:
+https://deriv.com/signup?sidc=808C8BC1-CA13-4AE4-83EE-0A6513B55687&utm_campaign=dynamicworks&utm_medium=affiliate&utm_source=CU31372`;
+
 export default function SignalPulseDashboard() {
   const [symbol, setSymbol] = useState('R_100');
   const [strategy, setStrategy] = useState('RISE_FALL');
@@ -55,11 +78,7 @@ export default function SignalPulseDashboard() {
   // Bot & Template Settings
   const [botToken, setBotToken] = useState('');
   const [chatId, setChatId] = useState('');
-  const [duration, setDuration] = useState('Instant');
-  const [recovery, setRecovery] = useState('Martingale');
-  const [confidence, setConfidence] = useState('98%');
-  const [contact, setContact] = useState('@FrostyTradersSupport');
-  const [notes, setNotes] = useState('Always use strict risk management.');
+  const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
   const [showSettings, setShowSettings] = useState(false);
 
   const prevPriceRef = useRef<number | null>(null);
@@ -76,11 +95,7 @@ export default function SignalPulseDashboard() {
     if (typeof window !== 'undefined') {
       setBotToken(localStorage.getItem('tg_bot_token') || '');
       setChatId(localStorage.getItem('tg_chat_id') || '');
-      setDuration(localStorage.getItem('tg_duration') || 'Instant');
-      setRecovery(localStorage.getItem('tg_recovery') || 'Martingale');
-      setConfidence(localStorage.getItem('tg_confidence') || '98%');
-      setContact(localStorage.getItem('tg_contact') || '@FrostyTradersSupport');
-      setNotes(localStorage.getItem('tg_notes') || 'Always use strict risk management.');
+      setTemplate(localStorage.getItem('tg_template') || DEFAULT_TEMPLATE);
     }
 
     handleSearch('R_100', start, end);
@@ -147,12 +162,9 @@ export default function SignalPulseDashboard() {
       strategy: currentStrategyLabel,
       type: signal.type,
       price: signal.rawPrice || signal.price.toString(),
-      runs: signal.runs,
-      duration,
-      recovery,
-      confidence,
-      contact,
-      notes,
+      runs: signal.runs || 1,
+      template,
+      time: format(new Date(), 'HH:mm:ss')
     });
 
     if (result.success) {
@@ -168,15 +180,18 @@ export default function SignalPulseDashboard() {
   const handleSaveSettings = () => {
     localStorage.setItem('tg_bot_token', botToken);
     localStorage.setItem('tg_chat_id', chatId);
-    localStorage.setItem('tg_duration', duration);
-    localStorage.setItem('tg_recovery', recovery);
-    localStorage.setItem('tg_confidence', confidence);
-    localStorage.setItem('tg_contact', contact);
-    localStorage.setItem('tg_notes', notes);
+    localStorage.setItem('tg_template', template);
     setShowSettings(false);
     toast({
       title: "Configuration Saved",
       description: "FrostyTraders bot and template updated.",
+    });
+  };
+
+  const handleResetTemplate = () => {
+    setTemplate(DEFAULT_TEMPLATE);
+    toast({
+      description: "Template reset to default format.",
     });
   };
 
@@ -225,6 +240,21 @@ export default function SignalPulseDashboard() {
     }
   };
 
+  const previewContent = useMemo(() => {
+    let content = template;
+    content = content.replace(/{market}/g, "Volatility 75");
+    content = content.replace(/{strategy}/g, "Even/Odd Dominance");
+    content = content.replace(/{signal}/g, "ODD");
+    content = content.replace(/{entry}/g, "{entry}");
+    content = content.replace(/{time}/g, format(new Date(), 'HH:mm:ss a'));
+    content = content.replace(/{runs}/g, "{runs}");
+    content = content.replace(/{recovery}/g, "{recovery}");
+    content = content.replace(/{confidence}/g, "82%");
+    content = content.replace(/{contact}/g, "No Direct Messages");
+    content = content.replace(/{notes}/g, "{notes}");
+    return content;
+  }, [template]);
+
   if (!mounted) return null;
 
   return (
@@ -240,7 +270,7 @@ export default function SignalPulseDashboard() {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowSettings(!showSettings)} className="gap-2 text-xs font-bold border-accent/20">
             <Settings className="h-4 w-4 text-accent" />
-            ADJUST TEMPLATE & BOT
+            SIGNAL MESSAGE FORMAT
           </Button>
           <Badge variant="outline" className="px-3 py-1 bg-white flex gap-2 items-center shadow-sm text-[10px] font-bold">
             <div className={cn("w-2 h-2 rounded-full", liveTick ? "bg-emerald-500 animate-pulse" : "bg-muted")} />
@@ -250,70 +280,89 @@ export default function SignalPulseDashboard() {
       </header>
 
       {showSettings && (
-        <Card className="border-accent/10 bg-[#f0f2f9] overflow-hidden shadow-xl animate-in fade-in slide-in-from-top-4 duration-300">
-          <Tabs defaultValue="template" className="w-full">
-            <div className="flex justify-center p-4">
-              <TabsList className="bg-white/50 p-1 rounded-full shadow-inner">
-                <TabsTrigger value="bot" className="text-[10px] font-bold uppercase tracking-tight rounded-full px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Bot Config</TabsTrigger>
-                <TabsTrigger value="template" className="text-[10px] font-bold uppercase tracking-tight rounded-full px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Template Details</TabsTrigger>
-              </TabsList>
+        <Card className="border-accent/10 bg-[#f0f2f9] overflow-hidden shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300">
+          <CardHeader className="pb-2 border-b border-border/10">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-accent" />
+              Signal Message Format
+            </CardTitle>
+            <CardDescription className="text-xs">Customize the signal message template sent to Telegram</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Left Column: Editor */}
+              <div className="space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Bot Configuration</label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input 
+                        type="password" 
+                        placeholder="Telegram Bot Token" 
+                        value={botToken} 
+                        onChange={(e) => setBotToken(e.target.value)}
+                        className="bg-white h-10 text-xs border-none shadow-sm focus-visible:ring-accent"
+                      />
+                      <Input 
+                        placeholder="Telegram Chat ID" 
+                        value={chatId} 
+                        onChange={(e) => setChatId(e.target.value)}
+                        className="bg-white h-10 text-xs border-none shadow-sm focus-visible:ring-accent"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Message Template</label>
+                    <Textarea 
+                      value={template} 
+                      onChange={(e) => setTemplate(e.target.value)}
+                      className="bg-[#c2cbd8] text-primary font-mono text-xs h-[250px] border-none shadow-inner p-4 focus-visible:ring-accent resize-none rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4 bg-[#c2cbd8]/50 rounded-xl space-y-2">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Available Placeholders:</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] font-medium text-muted-foreground">
+                    <p><span className="text-accent">{'{market}'}</span> - Market name</p>
+                    <p><span className="text-accent">{'{strategy}'}</span> - Strategy name</p>
+                    <p><span className="text-accent">{'{signal}'}</span> - Signal direction</p>
+                    <p><span className="text-accent">{'{confidence}'}</span> - Confidence %</p>
+                    <p><span className="text-accent">{'{time}'}</span> - Local time</p>
+                    <p><span className="text-accent">{'{symbol}'}</span> - Market symbol</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Preview */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Preview</label>
+                <div className="bg-[#1a1e2c] p-6 rounded-[2rem] shadow-2xl h-full border border-white/5 relative overflow-hidden group">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-accent/20 to-transparent"></div>
+                  <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-emerald-400">
+                    {previewContent}
+                  </pre>
+                </div>
+              </div>
             </div>
-            <CardContent className="pt-2 px-6 pb-6">
-              <TabsContent value="bot" className="mt-0 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">Bot API Token</label>
-                    <Input 
-                      type="password" 
-                      placeholder="Enter Telegram Bot Token" 
-                      value={botToken} 
-                      onChange={(e) => setBotToken(e.target.value)}
-                      className="bg-white h-11 text-sm border-none shadow-sm focus-visible:ring-accent"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">Destination Chat ID</label>
-                    <Input 
-                      placeholder="Enter Telegram Chat ID" 
-                      value={chatId} 
-                      onChange={(e) => setChatId(e.target.value)}
-                      className="bg-white h-11 text-sm border-none shadow-sm focus-visible:ring-accent"
-                    />
-                  </div>
-                </div>
-              </TabsContent>
-              <TabsContent value="template" className="mt-0 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">Duration</label>
-                    <Input value={duration} onChange={(e) => setDuration(e.target.value)} className="bg-white h-11 text-sm border-none shadow-sm focus-visible:ring-accent" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">Recovery</label>
-                    <Input value={recovery} onChange={(e) => setRecovery(e.target.value)} className="bg-white h-11 text-sm border-none shadow-sm focus-visible:ring-accent" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">Confidence</label>
-                    <Input value={confidence} onChange={(e) => setConfidence(e.target.value)} className="bg-white h-11 text-sm border-none shadow-sm focus-visible:ring-accent" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">Support Contact</label>
-                    <Input value={contact} onChange={(e) => setContact(e.target.value)} className="bg-white h-11 text-sm border-none shadow-sm focus-visible:ring-accent" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">Additional Notes</label>
-                    <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="bg-white h-11 text-sm border-none shadow-sm focus-visible:ring-accent" />
-                  </div>
-                </div>
-              </TabsContent>
-              <div className="flex justify-end mt-8 gap-4 pt-4">
-                <Button variant="ghost" size="sm" onClick={() => setShowSettings(false)} className="text-[10px] font-bold uppercase tracking-widest hover:bg-white/50">Cancel</Button>
+
+            <div className="flex flex-col md:flex-row items-center justify-between mt-8 pt-6 border-t border-border/10 gap-4">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleResetTemplate}
+                className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:bg-white/50"
+              >
+                <RotateCcw className="h-3 w-3 mr-2" />
+                Reset to Default Format
+              </Button>
+              <div className="flex gap-4">
+                <Button variant="ghost" size="sm" onClick={() => setShowSettings(false)} className="text-[10px] font-bold uppercase tracking-widest">Cancel</Button>
                 <Button onClick={handleSaveSettings} className="bg-accent hover:bg-accent/90 h-11 px-10 text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-accent/20 rounded-lg">Save Settings</Button>
               </div>
-            </CardContent>
-          </Tabs>
+            </div>
+          </CardContent>
         </Card>
       )}
 

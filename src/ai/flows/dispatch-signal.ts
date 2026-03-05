@@ -2,7 +2,7 @@
 /**
  * @fileOverview FROSTYTRADERS Signal Dispatcher Flow.
  * 
- * Uses Genkit to format market signals with the custom FROSTYTRADERS template exactly as requested.
+ * Uses Genkit to format market signals using a customizable template exactly as requested.
  */
 
 import { ai } from '@/ai/genkit';
@@ -13,14 +13,11 @@ const DispatchInputSchema = z.object({
   chatId: z.string().describe('The destination Telegram Chat ID.'),
   symbol: z.string().describe('The market symbol.'),
   strategy: z.string().describe('The strategy name.'),
-  type: z.string().describe('The specific signal (RISE, FALL, OVER 2, etc.).'),
-  price: z.string().describe('The execution price.'),
-  duration: z.string().optional().describe('Signal duration.'),
+  type: z.string().describe('The specific signal type (direction).'),
+  price: z.string().describe('The execution price (Entry Point).'),
   runs: z.number().optional().describe('Number of runs.'),
-  recovery: z.string().optional().describe('Recovery strategy.'),
-  confidence: z.string().optional().describe('Confidence level.'),
-  contact: z.string().optional().describe('Contact information.'),
-  notes: z.string().optional().describe('Additional notes.'),
+  template: z.string().describe('The custom template string with placeholders.'),
+  time: z.string().describe('The formatted local time.'),
 });
 
 const DispatchOutputSchema = z.object({
@@ -33,33 +30,6 @@ export async function dispatchSignalToTelegram(input: z.infer<typeof DispatchInp
   return dispatchSignalFlow(input);
 }
 
-const formatPrompt = ai.definePrompt({
-  name: 'formatSignalPrompt',
-  input: { schema: DispatchInputSchema },
-  prompt: `🚨 **FROSTYTRADERS – DERIV SIGNAL**
-
-📊 **Market:** {{{symbol}}}
-🤖 **Bot / Strategy:** {{{strategy}}}
-🎯 **Signal :** {{{type}}}
-📲 **Entry Point:** {{{price}}}
-⏱ **Signal Duration:** {{#if duration}}{{{duration}}}{{else}}Instant{{/if}}
-🔁 **Number of Runs:** {{#if runs}}{{{runs}}}{{else}}1{{/if}}
-🔄 **Recovery:** {{#if recovery}}{{{recovery}}}{{else}}Martingale{{/if}}
-💪 **Confidence Level:** {{#if confidence}}{{{confidence}}}{{else}}98%{{/if}}
-
-🚫 **Contact:** {{#if contact}}{{{contact}}}{{else}}@FrostyTradersSupport{{/if}}
-
-📝 **Additional Notes:** {{#if notes}}{{{notes}}}{{else}}Follow risk management.{{/if}}
-
-
-🔗 [**Create a Deriv Trading Account**](https://deriv.com/signup?sidc=808C8BC1-CA13-4AE4-83EE-0A6513B55687&utm_campaign=dynamicworks&utm_medium=affiliate&utm_source=CU31372)
-
-Instructions:
-- Follow the structure exactly.
-- Ensure the Markdown link for the referral is active.
-- Use the provided field values.`,
-});
-
 const dispatchSignalFlow = ai.defineFlow(
   {
     name: 'dispatchSignalFlow',
@@ -68,7 +38,25 @@ const dispatchSignalFlow = ai.defineFlow(
   },
   async (input) => {
     try {
-      const { text: formattedMessage } = await formatPrompt(input);
+      /**
+       * Dynamically replace placeholders in the user-provided template.
+       * This gives the user 100% control over the message format while the system
+       * provides the high-precision data.
+       */
+      let message = input.template;
+      message = message.replace(/{market}/g, input.symbol);
+      message = message.replace(/{strategy}/g, input.strategy);
+      message = message.replace(/{signal}/g, input.type);
+      message = message.replace(/{entry}/g, input.price);
+      message = message.replace(/{time}/g, input.time);
+      message = message.replace(/{runs}/g, input.runs?.toString() || "1");
+      message = message.replace(/{symbol}/g, input.symbol);
+      
+      // Handle remaining placeholders with defaults if needed
+      message = message.replace(/{recovery}/g, "Martingale");
+      message = message.replace(/{confidence}/g, "98%");
+      message = message.replace(/{contact}/g, "@FrostyTradersSupport");
+      message = message.replace(/{notes}/g, "Follow strict risk management.");
 
       const url = `https://api.telegram.org/bot${input.botToken}/sendMessage`;
       const response = await fetch(url, {
@@ -76,7 +64,8 @@ const dispatchSignalFlow = ai.defineFlow(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: input.chatId,
-          text: formattedMessage,
+          text: message,
+          // Use Markdown to ensure links like the referral link work correctly
           parse_mode: 'Markdown',
         }),
       });
