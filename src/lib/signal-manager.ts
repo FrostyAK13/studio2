@@ -9,9 +9,11 @@ export interface Signal {
   lastDigit?: string;
   synced: boolean;
   runs?: number;
+  interval?: string;
 }
 
 const STORAGE_KEY = 'signalpulse_signals';
+const LAST_SIGNAL_TIMES = 'signalpulse_last_times';
 
 // Persistent history for pattern detection
 const digitHistory: Record<string, number[]> = {};
@@ -36,7 +38,8 @@ export const SignalManager = {
       synced: false,
     };
     
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([newSignal, ...signals].slice(0, 50)));
+    const updatedSignals = [newSignal, ...signals].slice(0, 50);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSignals));
     return newSignal;
   },
 
@@ -52,16 +55,46 @@ export const SignalManager = {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   },
 
+  /**
+   * Checks if enough time has passed based on the selected interval.
+   */
+  shouldProcessSignal: (symbol: string, strategy: string, intervalMinutes: number): boolean => {
+    if (typeof window === 'undefined') return false;
+    const storedTimes = localStorage.getItem(LAST_SIGNAL_TIMES);
+    const times = storedTimes ? JSON.parse(storedTimes) : {};
+    const key = `${symbol}_${strategy}`;
+    const lastTime = times[key] || 0;
+    
+    const now = Date.now();
+    const intervalMs = intervalMinutes * 60 * 1000;
+    
+    if (now - lastTime >= intervalMs) {
+      times[key] = now;
+      localStorage.setItem(LAST_SIGNAL_TIMES, JSON.stringify(times));
+      return true;
+    }
+    return false;
+  },
+
   processSignalsFromData: (
     symbol: string, 
     currentPrice: number, 
     lastDigit: string, 
     prevPrice: number | null,
     strategy: string,
-    rawPrice: string
+    rawPrice: string,
+    intervalStr: string
   ): Signal | null => {
     const dVal = parseInt(lastDigit);
     if (isNaN(dVal)) return null;
+
+    // Convert interval string (e.g., '5m', '1h') to minutes
+    let intervalMinutes = 5;
+    if (intervalStr.endsWith('h')) {
+      intervalMinutes = parseInt(intervalStr) * 60;
+    } else {
+      intervalMinutes = parseInt(intervalStr) || 5;
+    }
 
     // Track digit history for pattern-based strategies
     if (!digitHistory[symbol]) digitHistory[symbol] = [];
@@ -70,78 +103,80 @@ export const SignalManager = {
 
     const history = digitHistory[symbol];
     
+    // Check if we should even look for a signal based on the timeframe
+    if (!SignalManager.shouldProcessSignal(symbol, strategy, intervalMinutes)) {
+      return null;
+    }
+    
+    let result: Signal | null = null;
+
     switch (strategy) {
       case 'RISE_FALL':
         if (prevPrice !== null) {
           if (currentPrice > prevPrice) {
-            return SignalManager.saveSignal({ symbol, type: 'RISE', strategy, price: currentPrice, rawPrice, lastDigit });
+            result = SignalManager.saveSignal({ symbol, type: 'RISE', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr });
           } else if (currentPrice < prevPrice) {
-            return SignalManager.saveSignal({ symbol, type: 'FALL', strategy, price: currentPrice, rawPrice, lastDigit });
+            result = SignalManager.saveSignal({ symbol, type: 'FALL', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr });
           }
         }
         break;
 
       case 'EVEN_ODD':
         const isEven = dVal % 2 === 0;
-        // Require 2 consecutive same parity for "High Prob" signal
         if (history.length >= 2 && history[history.length-2] % 2 === (isEven ? 0 : 1)) {
-           return SignalManager.saveSignal({ 
+           result = SignalManager.saveSignal({ 
             symbol, 
             type: isEven ? 'EVEN' : 'ODD', 
             strategy, 
             price: currentPrice, 
             rawPrice,
-            lastDigit 
+            lastDigit,
+            interval: intervalStr
           });
         }
         break;
 
       case 'OVER_UNDER':
-        /**
-         * SPECIALIZED OVER 2 / UNDER 7 STRATEGY
-         * Strategy: Wait for 3 consecutive digits meeting the condition (Safe Entry).
-         * Runs: Optimized for 1 Run.
-         */
         if (history.length >= 3) {
           const last3 = history.slice(-3);
           const allOver2 = last3.every(d => d > 2);
           const allUnder7 = last3.every(d => d < 7);
 
           if (allOver2) {
-            return SignalManager.saveSignal({ 
+            result = SignalManager.saveSignal({ 
               symbol, 
               type: 'OVER 2', 
               strategy, 
               price: currentPrice, 
               rawPrice,
               lastDigit,
-              runs: 1 
+              runs: 1,
+              interval: intervalStr
             });
           } else if (allUnder7) {
-            return SignalManager.saveSignal({ 
+            result = SignalManager.saveSignal({ 
               symbol, 
               type: 'UNDER 7', 
               strategy, 
               price: currentPrice, 
               rawPrice,
               lastDigit,
-              runs: 1
+              runs: 1,
+              interval: intervalStr
             });
           }
         }
         break;
 
       case 'MATCHES_DIFFERS':
-        // Target is 0
         if (dVal === 0) {
-          return SignalManager.saveSignal({ symbol, type: 'MATCH 0', strategy, price: currentPrice, rawPrice, lastDigit });
+          result = SignalManager.saveSignal({ symbol, type: 'MATCH 0', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr });
         } else if (history.length >= 4 && history.slice(-4).every(d => d !== 0)) {
-           // Differ signal after 4 non-zero ticks
-          return SignalManager.saveSignal({ symbol, type: 'DIFFERS 0', strategy, price: currentPrice, rawPrice, lastDigit });
+          result = SignalManager.saveSignal({ symbol, type: 'DIFFERS 0', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr });
         }
         break;
     }
     
-    return null;
+    return result;
   }
 };
