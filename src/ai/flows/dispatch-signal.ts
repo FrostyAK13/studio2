@@ -1,9 +1,11 @@
+
 'use server';
 /**
  * @fileOverview FROSTYTRADERS Signal Dispatcher Flow.
  * 
  * Uses Genkit to format market signals using a customizable template exactly as requested.
  * Uses HTML parse mode for Telegram to ensure high reliability with URLs and special characters.
+ * Implements robust error handling and timeout for the Next.js Server Action environment.
  */
 
 import { ai } from '@/ai/genkit';
@@ -27,8 +29,19 @@ const DispatchOutputSchema = z.object({
   error: z.string().optional(),
 });
 
+/**
+ * Server Action wrapper with robust error handling for the Next.js environment.
+ */
 export async function dispatchSignalToTelegram(input: z.infer<typeof DispatchInputSchema>) {
-  return dispatchSignalFlow(input);
+  try {
+    return await dispatchSignalFlow(input);
+  } catch (e: any) {
+    console.error("Signal Dispatch Error:", e);
+    return { 
+      success: false, 
+      error: e.message || "An unexpected error occurred during dispatch." 
+    };
+  }
 }
 
 const dispatchSignalFlow = ai.defineFlow(
@@ -51,7 +64,7 @@ const dispatchSignalFlow = ai.defineFlow(
       message = message.replace(/{time}/g, input.time);
       message = message.replace(/{runs}/g, input.runs?.toString() || "1");
       
-      // Handle additional static/optional fields
+      // Handle additional static/optional fields with professional defaults
       message = message.replace(/{recovery}/g, "Martingale");
       message = message.replace(/{confidence}/g, "98%");
       message = message.replace(/{contact}/g, "@FrostyTradersSupport");
@@ -60,9 +73,18 @@ const dispatchSignalFlow = ai.defineFlow(
       const botToken = input.botToken.trim();
       const chatId = input.chatId.trim();
 
+      if (!botToken || !chatId) {
+        return { success: false, error: "Bot Token or Chat ID is missing." };
+      }
+
       const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
       
-      // Use HTML parse mode as it is much more robust than Markdown for URLs with underscores
+      /**
+       * Execute fetch with a timeout to prevent Server Action hangs.
+       */
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -72,7 +94,10 @@ const dispatchSignalFlow = ai.defineFlow(
           parse_mode: 'HTML',
           disable_web_page_preview: false
         }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       const result = await response.json();
 
@@ -85,6 +110,9 @@ const dispatchSignalFlow = ai.defineFlow(
 
       return { success: true, messageId: result.result.message_id.toString() };
     } catch (e: any) {
+      if (e.name === 'AbortError') {
+        return { success: false, error: "Telegram API request timed out." };
+      }
       return { success: false, error: `System Error: ${e.message}` };
     }
   }

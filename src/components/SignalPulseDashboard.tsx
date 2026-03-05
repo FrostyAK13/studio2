@@ -163,8 +163,8 @@ export default function SignalPulseDashboard() {
     
     try {
       const result = await dispatchSignalToTelegram({
-        botToken,
-        chatId,
+        botToken: botToken.trim(),
+        chatId: chatId.trim(),
         symbol: currentSymbolLabel,
         strategy: currentStrategyLabel,
         type: signal.type,
@@ -196,8 +196,8 @@ export default function SignalPulseDashboard() {
     setIsTesting(true);
     try {
       const result = await dispatchSignalToTelegram({
-        botToken,
-        chatId,
+        botToken: botToken.trim(),
+        chatId: chatId.trim(),
         symbol: "TEST MARKET (VOL 100)",
         strategy: "CONNECTION TEST",
         type: "SUCCESS",
@@ -225,8 +225,8 @@ export default function SignalPulseDashboard() {
     } catch (e: any) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: e.message,
+        title: "Server Action Error",
+        description: "The connection to the server was interrupted. Please try again.",
       });
     } finally {
       setIsTesting(false);
