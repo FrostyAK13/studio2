@@ -364,10 +364,10 @@ export default function SignalPulseDashboard() {
                 <div className="p-3 bg-primary/5 rounded-lg border border-primary/10 flex items-center justify-between">
                   <div className="space-y-1">
                     <p className="text-[10px] font-bold text-primary uppercase">24/7 Status</p>
-                    <p className="text-xs font-bold flex items-center gap-1">
+                    <div className="text-xs font-bold flex items-center gap-1">
                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       ACTIVE POLLING
-                    </p>
+                    </div>
                   </div>
                   <Activity className="h-4 w-4 text-primary opacity-50" />
                 </div>
@@ -532,10 +532,10 @@ export default function SignalPulseDashboard() {
                 </div>
                 <div className="p-4 rounded-2xl bg-white border shadow-sm">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase">Sync Status</p>
-                  <p className="text-lg font-bold flex items-center gap-2">
+                  <div className="text-lg font-bold flex items-center gap-2">
                     <div className={cn("w-2 h-2 rounded-full", isOnline ? "bg-emerald-500" : "bg-rose-500")} />
                     {isOnline ? 'HEALTHY' : 'PENDING'}
-                  </p>
+                  </div>
                 </div>
               </div>
               <div className="flex flex-col items-center justify-center p-8 bg-accent/5 rounded-[2.5rem] border border-accent/10 relative overflow-hidden">
