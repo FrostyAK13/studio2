@@ -1,9 +1,10 @@
+
 'use server';
 /**
  * @fileOverview Telegram Signal Dispatcher Flow.
  * 
  * Uses Genkit to format market signals with a "God Father" persona and 
- * dispatches them to a Telegram Bot.
+ * dispatches them to a Telegram Bot. Supports advanced strategy types.
  */
 
 import { ai } from '@/ai/genkit';
@@ -12,8 +13,8 @@ import { z } from 'genkit';
 const DispatchInputSchema = z.object({
   botToken: z.string().describe('The Telegram Bot API token.'),
   chatId: z.string().describe('The destination Telegram Chat ID.'),
-  symbol: z.string().describe('The market symbol (e.g., Volatility 100 Index).'),
-  type: z.enum(['BUY', 'SELL', 'HOLD']).describe('The trading signal type.'),
+  symbol: z.string().describe('The market symbol.'),
+  type: z.string().describe('The specific signal type (RISE, FALL, OVER 4, EVEN, etc.).'),
   price: z.number().describe('The execution price.'),
 });
 
@@ -30,13 +31,19 @@ export async function dispatchSignalToTelegram(input: z.infer<typeof DispatchInp
 const formatPrompt = ai.definePrompt({
   name: 'formatSignalPrompt',
   input: { schema: DispatchInputSchema },
-  prompt: `You are the "GOD FATHER" of market signals. Create a short, authoritative, and catchy Telegram message for the following signal.
+  prompt: `You are the "GOD FATHER" of high-precision market signals. 
+  Create an authoritative, punchy, and professional Telegram message for this signal.
   
   Symbol: {{{symbol}}}
-  Action: {{{type}}}
-  Price: {{{price}}}
+  Signal Action: {{{type}}}
+  Execution Price: {{{price}}}
   
-  Use emojis and bold text. Include "GOD FATHER" branding. Output the final message text only.`,
+  Instructions:
+  - Use bold text for key details.
+  - Use market-appropriate emojis (🚀, 📈, 📉, 🎯).
+  - Include "GOD FATHER INTELLIGENCE" branding.
+  - Keep it concise for mobile users.
+  - Output the final message text only.`,
 });
 
 const dispatchSignalFlow = ai.defineFlow(
