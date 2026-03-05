@@ -1,10 +1,8 @@
-
 'use server';
 /**
- * @fileOverview Telegram Signal Dispatcher Flow.
+ * @fileOverview FrostyTraders Signal Dispatcher Flow.
  * 
- * Uses Genkit to format market signals with a "God Father" persona and 
- * dispatches them to a Telegram Bot. Supports advanced strategy types and runs.
+ * Uses Genkit to format market signals with the custom FROSTYTRADERS template.
  */
 
 import { ai } from '@/ai/genkit';
@@ -14,9 +12,15 @@ const DispatchInputSchema = z.object({
   botToken: z.string().describe('The Telegram Bot API token.'),
   chatId: z.string().describe('The destination Telegram Chat ID.'),
   symbol: z.string().describe('The market symbol.'),
-  type: z.string().describe('The specific signal type (RISE, FALL, OVER 2, UNDER 7, etc.).'),
+  strategy: z.string().describe('The strategy name.'),
+  type: z.string().describe('The specific signal (RISE, FALL, OVER 2, etc.).'),
   price: z.number().describe('The execution price.'),
-  runs: z.number().optional().describe('Number of runs/duration for the trade.'),
+  duration: z.string().optional().describe('Signal duration.'),
+  runs: z.number().optional().describe('Number of runs.'),
+  recovery: z.string().optional().describe('Recovery strategy.'),
+  confidence: z.string().optional().describe('Confidence level.'),
+  contact: z.string().optional().describe('Contact information.'),
+  notes: z.string().optional().describe('Additional notes.'),
 });
 
 const DispatchOutputSchema = z.object({
@@ -32,22 +36,28 @@ export async function dispatchSignalToTelegram(input: z.infer<typeof DispatchInp
 const formatPrompt = ai.definePrompt({
   name: 'formatSignalPrompt',
   input: { schema: DispatchInputSchema },
-  prompt: `You are the "GOD FATHER" of high-precision market signals. 
-  Create an authoritative, punchy, and professional Telegram message for this signal.
-  
-  Symbol: {{{symbol}}}
-  Signal Action: {{{type}}}
-  Execution Price: {{{price}}}
-  {{#if runs}}Suggested Runs: {{{runs}}}{{/if}}
-  
-  Instructions:
-  - Use bold text for key details.
-  - Use market-appropriate emojis (🚀, 📈, 📉, 🎯, ⚡).
-  - Include "GOD FATHER INTELLIGENCE" branding.
-  - Highlight the "ENTRY POINT" as the current price.
-  - If runs are provided, emphasize that this is a SHORT DURATION entry.
-  - Keep it concise for mobile users.
-  - Output the final message text only.`,
+  prompt: `🚨 **FROSTYTRADERS – DERIV SIGNAL**
+
+📊 **Market:** {{{symbol}}}
+🤖 **Bot / Strategy:** {{{strategy}}}
+🎯 **Signal :** {{{type}}}
+📲 **Entry Point:** {{{price}}}
+⏱ **Signal Duration:** {{#if duration}}{{{duration}}}{{else}}Instant{{/if}}
+🔁 **Number of Runs:** {{#if runs}}{{{runs}}}{{else}}1{{/if}}
+🔄 **Recovery:** {{#if recovery}}{{{recovery}}}{{else}}None{{/if}}
+💪 **Confidence Level:** {{#if confidence}}{{{confidence}}}{{else}}95%{{/if}}
+
+🚫 **Contact:** {{#if contact}}{{{contact}}}{{else}}@FrostyTradersSupport{{/if}}
+
+📝 **Additional Notes:** {{#if notes}}{{{notes}}}{{else}}Follow risk management.{{/if}}
+
+
+🔗 **Create a Deriv Trading Account** (https://deriv.com/signup?sidc=808C8BC1-CA13-4AE4-83EE-0A6513B55687&utm_campaign=dynamicworks&utm_medium=affiliate&utm_source=CU31372)
+
+Instructions:
+- Use the exact structure above.
+- Do not add extra text outside the template.
+- Ensure the referral link is preserved at the bottom.`,
 });
 
 const dispatchSignalFlow = ai.defineFlow(
@@ -58,10 +68,8 @@ const dispatchSignalFlow = ai.defineFlow(
   },
   async (input) => {
     try {
-      // 1. Format the message using AI
       const { text: formattedMessage } = await formatPrompt(input);
 
-      // 2. Dispatch to Telegram API
       const url = `https://api.telegram.org/bot${input.botToken}/sendMessage`;
       const response = await fetch(url, {
         method: 'POST',

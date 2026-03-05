@@ -1,17 +1,16 @@
-
 "use client"
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { format, subMonths, parseISO } from 'date-fns';
-import { Search, Calendar as CalendarIcon, TrendingUp, TrendingDown, RefreshCw, Activity, Layers, Zap, Send, Settings, Bot, Target, Hash, ArrowUpDown, Clock } from 'lucide-react';
+import { Search, TrendingUp, TrendingDown, RefreshCw, Activity, Layers, Zap, Send, Settings, Bot, Target, Hash, ArrowUpDown, Clock, Info, MessageSquare } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { fetchHistoricalData, StockDataPoint } from '@/lib/stock-service';
 import { SignalManager, Signal } from '@/lib/signal-manager';
 import { derivWs, Tick } from '@/lib/deriv-websocket';
@@ -54,8 +53,14 @@ export default function SignalPulseDashboard() {
   const [liveTick, setLiveTick] = useState<Tick | null>(null);
   const [mounted, setMounted] = useState(false);
   
+  // Bot & Template Settings
   const [botToken, setBotToken] = useState('');
   const [chatId, setChatId] = useState('');
+  const [duration, setDuration] = useState('Instant');
+  const [recovery, setRecovery] = useState('Martingale');
+  const [confidence, setConfidence] = useState('98%');
+  const [contact, setContact] = useState('@FrostyTradersSupport');
+  const [notes, setNotes] = useState('Always use strict risk management.');
   const [showSettings, setShowSettings] = useState(false);
 
   const prevPriceRef = useRef<number | null>(null);
@@ -72,6 +77,11 @@ export default function SignalPulseDashboard() {
     if (typeof window !== 'undefined') {
       setBotToken(localStorage.getItem('tg_bot_token') || '');
       setChatId(localStorage.getItem('tg_chat_id') || '');
+      setDuration(localStorage.getItem('tg_duration') || 'Instant');
+      setRecovery(localStorage.getItem('tg_recovery') || 'Martingale');
+      setConfidence(localStorage.getItem('tg_confidence') || '98%');
+      setContact(localStorage.getItem('tg_contact') || '@FrostyTradersSupport');
+      setNotes(localStorage.getItem('tg_notes') || 'Always use strict risk management.');
     }
 
     handleSearch('R_100', start, end);
@@ -128,19 +138,26 @@ export default function SignalPulseDashboard() {
     if (!botToken || !chatId) return;
 
     const currentSymbolLabel = VOLATILITY_INDICES.find(i => i.value === signal.symbol)?.label || signal.symbol;
+    const currentStrategyLabel = STRATEGIES.find(s => s.value === signal.strategy)?.label || signal.strategy;
     
     const result = await dispatchSignalToTelegram({
       botToken,
       chatId,
       symbol: currentSymbolLabel,
+      strategy: currentStrategyLabel,
       type: signal.type,
       price: signal.price,
       runs: signal.runs,
+      duration,
+      recovery,
+      confidence,
+      contact,
+      notes,
     });
 
     if (result.success) {
       toast({
-        title: "GOD FATHER Dispatch",
+        title: "FROSTYTRADERS Dispatch",
         description: `${signal.type} Signal sent to Telegram`,
       });
       SignalManager.markAsSynced(signal.id);
@@ -151,10 +168,15 @@ export default function SignalPulseDashboard() {
   const handleSaveSettings = () => {
     localStorage.setItem('tg_bot_token', botToken);
     localStorage.setItem('tg_chat_id', chatId);
+    localStorage.setItem('tg_duration', duration);
+    localStorage.setItem('tg_recovery', recovery);
+    localStorage.setItem('tg_confidence', confidence);
+    localStorage.setItem('tg_contact', contact);
+    localStorage.setItem('tg_notes', notes);
     setShowSettings(false);
     toast({
-      title: "Settings Saved",
-      description: "Telegram Bot configurations updated.",
+      title: "Configuration Saved",
+      description: "FrostyTraders bot and template updated.",
     });
   };
 
@@ -211,54 +233,85 @@ export default function SignalPulseDashboard() {
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-2">
             <Bot className="h-8 w-8 text-accent" />
-            SignalPulse <span className="text-accent">GOD FATHER</span>
+            SignalPulse <span className="text-accent">FROSTYTRADERS</span>
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm">Advanced Strategy Intelligence v2.0</p>
+          <p className="text-muted-foreground mt-1 text-sm font-medium">Professional Deriv Signal Intelligence</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowSettings(!showSettings)} className="gap-2 text-xs">
-            <Settings className="h-4 w-4" />
-            Bot Settings
+          <Button variant="outline" size="sm" onClick={() => setShowSettings(!showSettings)} className="gap-2 text-xs font-bold border-accent/20">
+            <Settings className="h-4 w-4 text-accent" />
+            ADJUST TEMPLATE & BOT
           </Button>
           <Badge variant="outline" className="px-3 py-1 bg-white flex gap-2 items-center shadow-sm text-[10px] font-bold">
             <div className={cn("w-2 h-2 rounded-full", liveTick ? "bg-emerald-500 animate-pulse" : "bg-muted")} />
-            {liveTick ? 'LIVE FEED CONNECTED' : 'CONNECTING...'}
+            {liveTick ? 'LIVE FEED CONNECTED' : 'OFFLINE'}
           </Badge>
         </div>
       </header>
 
       {showSettings && (
-        <Card className="border-accent/20 bg-accent/5">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-tighter">
-              <Send className="h-4 w-4" />
-              Telegram Bot Configuration
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase">Bot Token</label>
-              <Input 
-                type="password" 
-                placeholder="Token" 
-                value={botToken} 
-                onChange={(e) => setBotToken(e.target.value)}
-                className="bg-white h-9 text-xs"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase">Chat ID</label>
-              <Input 
-                placeholder="Chat ID" 
-                value={chatId} 
-                onChange={(e) => setChatId(e.target.value)}
-                className="bg-white h-9 text-xs"
-              />
-            </div>
-            <div className="flex items-end">
-              <Button onClick={handleSaveSettings} className="w-full bg-accent hover:bg-accent/90 h-9 text-xs font-bold uppercase">Save Config</Button>
-            </div>
-          </CardContent>
+        <Card className="border-accent/20 bg-accent/5 overflow-hidden shadow-lg animate-in slide-in-from-top-4">
+          <Tabs defaultValue="bot" className="w-full">
+            <CardHeader className="pb-2 bg-white/50 border-b border-accent/10">
+              <TabsList className="bg-muted/50">
+                <TabsTrigger value="bot" className="text-xs font-bold uppercase tracking-tight">Bot Config</TabsTrigger>
+                <TabsTrigger value="template" className="text-xs font-bold uppercase tracking-tight">Template Details</TabsTrigger>
+              </TabsList>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <TabsContent value="bot" className="mt-0 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                    <Zap className="h-3 w-3" /> Bot API Token
+                  </label>
+                  <Input 
+                    type="password" 
+                    placeholder="Token" 
+                    value={botToken} 
+                    onChange={(e) => setBotToken(e.target.value)}
+                    className="bg-white h-9 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                    <Target className="h-3 w-3" /> Destination Chat ID
+                  </label>
+                  <Input 
+                    placeholder="Chat ID" 
+                    value={chatId} 
+                    onChange={(e) => setChatId(e.target.value)}
+                    className="bg-white h-9 text-xs"
+                  />
+                </div>
+              </TabsContent>
+              <TabsContent value="template" className="mt-0 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Duration</label>
+                  <Input value={duration} onChange={(e) => setDuration(e.target.value)} className="bg-white h-9 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Recovery</label>
+                  <Input value={recovery} onChange={(e) => setRecovery(e.target.value)} className="bg-white h-9 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Confidence</label>
+                  <Input value={confidence} onChange={(e) => setConfidence(e.target.value)} className="bg-white h-9 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Support Contact</label>
+                  <Input value={contact} onChange={(e) => setContact(e.target.value)} className="bg-white h-9 text-xs" />
+                </div>
+                <div className="md:col-span-2 space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Additional Notes</label>
+                  <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="bg-white h-9 text-xs" />
+                </div>
+              </TabsContent>
+              <div className="flex justify-end mt-6 gap-3 pt-4 border-t border-accent/10">
+                <Button variant="ghost" size="sm" onClick={() => setShowSettings(false)} className="text-xs font-bold uppercase">Cancel</Button>
+                <Button onClick={handleSaveSettings} className="bg-accent hover:bg-accent/90 h-9 px-8 text-xs font-bold uppercase shadow-accent/20 shadow-lg">Save Settings</Button>
+              </div>
+            </CardContent>
+          </Tabs>
         </Card>
       )}
 
@@ -341,12 +394,12 @@ export default function SignalPulseDashboard() {
         <Card className="lg:col-span-3 shadow-sm border-none ring-1 ring-border/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-border/50">
             <div>
-              <CardTitle className="text-xl flex items-center gap-2">
+              <CardTitle className="text-xl flex items-center gap-2 font-headline">
                 {VOLATILITY_INDICES.find(i => i.value === symbol)?.label || symbol}
-                {liveTick && <Badge variant="secondary" className="animate-pulse bg-emerald-50 text-emerald-700 border-emerald-100 text-[10px]">Live Stream</Badge>}
+                {liveTick && <Badge variant="secondary" className="animate-pulse bg-emerald-50 text-emerald-700 border-emerald-100 text-[10px] font-bold">LIVE FEED</Badge>}
               </CardTitle>
-              <CardDescription className="text-xs uppercase font-bold text-muted-foreground/70 tracking-widest">
-                Real-Time {STRATEGIES.find(s => s.value === strategy)?.label} Processing
+              <CardDescription className="text-xs uppercase font-bold text-muted-foreground/70 tracking-widest mt-1">
+                {STRATEGIES.find(s => s.value === strategy)?.label} Processing Engine
               </CardDescription>
             </div>
             { (liveTick || data.length > 0) && (
@@ -414,8 +467,8 @@ export default function SignalPulseDashboard() {
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground border-2 border-dashed border-muted rounded-2xl bg-muted/5 font-bold uppercase text-xs tracking-widest">
-                  Initializing High-Precision Analysis...
+                <div className="h-full flex items-center justify-center text-muted-foreground border-2 border-dashed border-muted rounded-2xl bg-muted/5 font-bold uppercase text-[10px] tracking-widest">
+                  Initializing FrostyTraders Pulse...
                 </div>
               )}
             </div>
@@ -429,14 +482,14 @@ export default function SignalPulseDashboard() {
             <div>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Layers className="h-5 w-5 text-accent" />
-                Strategy Feed
+                Live Strategy Feed
               </CardTitle>
               <CardDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
-                Live {STRATEGIES.find(s => s.value === strategy)?.label} Detections
+                FROSTYTRADERS Node Detections
               </CardDescription>
             </div>
-            <Button size="sm" variant="outline" className="h-8 text-[10px] uppercase font-bold" onClick={handleSync} disabled={isSyncing}>
-              {isSyncing ? <RefreshCw className="h-3 w-3 animate-spin mr-1" /> : 'Force Sync'}
+            <Button size="sm" variant="outline" className="h-8 text-[10px] uppercase font-bold border-accent/20" onClick={handleSync} disabled={isSyncing}>
+              {isSyncing ? <RefreshCw className="h-3 w-3 animate-spin mr-1" /> : 'RE-SYNC SIGNALS'}
             </Button>
           </CardHeader>
           <CardContent>
@@ -469,15 +522,16 @@ export default function SignalPulseDashboard() {
                     </div>
                     <div className="text-right">
                       <div className="font-mono font-bold text-sm tracking-tighter">{signal.price.toFixed(5)}</div>
-                      <div className={cn("text-[9px] font-bold uppercase tracking-widest", signal.synced ? "text-emerald-600" : "text-amber-600")}>
-                        {signal.synced ? 'Synced' : 'Dispatching...'}
+                      <div className={cn("text-[9px] font-bold uppercase tracking-widest flex items-center justify-end gap-1", signal.synced ? "text-emerald-600" : "text-amber-600")}>
+                        {signal.synced ? <Zap className="h-3 w-3" /> : <RefreshCw className="h-3 w-3 animate-spin" />}
+                        {signal.synced ? 'Dispatched' : 'Queued'}
                       </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="py-12 text-center text-muted-foreground bg-muted/10 rounded-2xl border border-dashed border-muted/50 font-medium text-xs tracking-widest">
-                  LISTENING FOR {STRATEGIES.find(s => s.value === strategy)?.label.toUpperCase()} SIGNALS...
+                <div className="py-12 text-center text-muted-foreground bg-muted/10 rounded-2xl border border-dashed border-muted/50 font-bold text-[10px] tracking-widest uppercase">
+                  Listening for {STRATEGIES.find(s => s.value === strategy)?.label.toUpperCase()} Strategy Matches...
                 </div>
               )}
             </div>
@@ -486,19 +540,19 @@ export default function SignalPulseDashboard() {
 
         <Card className="shadow-sm border-none ring-1 ring-border/50">
           <CardHeader>
-            <CardTitle className="text-lg">Real-Time Intelligence</CardTitle>
-            <CardDescription className="text-xs uppercase font-bold tracking-widest opacity-60">Success probability metrics</CardDescription>
+            <CardTitle className="text-lg">Frosty Intelligence Stats</CardTitle>
+            <CardDescription className="text-xs uppercase font-bold tracking-widest opacity-60">Success Probability Metrics</CardDescription>
           </CardHeader>
           <CardContent className="h-[300px]">
             {signals.length > 0 ? (
               <div className="grid grid-cols-2 gap-6 h-full items-center">
                 <div className="space-y-6">
                   <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 shadow-sm">
-                    <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1">Total Hits</p>
+                    <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1">Signals Found</p>
                     <p className="text-4xl font-mono font-bold text-emerald-600">{signals.length}</p>
                   </div>
                   <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 shadow-sm">
-                    <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Bot Syncs</p>
+                    <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">Bot Successes</p>
                     <p className="text-4xl font-mono font-bold text-primary">{signals.filter(s => s.synced).length}</p>
                   </div>
                 </div>
@@ -506,15 +560,15 @@ export default function SignalPulseDashboard() {
                   <Activity className="absolute h-64 w-64 text-accent/5 -right-16 -bottom-16" />
                   <div className="z-10 text-center">
                     <p className="text-[10px] font-bold text-accent uppercase mb-2 tracking-widest">Precision Rating</p>
-                    <div className="text-6xl font-mono font-bold text-accent tracking-tighter">99.8</div>
-                    <p className="text-[10px] text-muted-foreground mt-3 font-bold uppercase tracking-widest">Optimal Node Analysis</p>
+                    <div className="text-6xl font-mono font-bold text-accent tracking-tighter">99.9</div>
+                    <p className="text-[10px] text-muted-foreground mt-3 font-bold uppercase tracking-widest">Optimal Node Sync</p>
                   </div>
                 </div>
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-muted-foreground space-y-3">
                 <RefreshCw className="h-8 w-8 animate-spin opacity-10" />
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em]">Processing Node Stream...</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em]">Synchronizing Intelligence...</p>
               </div>
             )}
           </CardContent>
