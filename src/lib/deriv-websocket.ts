@@ -40,15 +40,11 @@ class DerivWebsocket {
         // JSON.parse() strips trailing zeros, which breaks last-digit analysis.
         let rawQuote = "";
         
-        // 1. Find the tick object content
-        const tickMatch = rawData.match(/"tick"\s*:\s*\{([^}]+)\}/);
-        if (tickMatch && tickMatch[1]) {
-          const tickContent = tickMatch[1];
-          // 2. Find the quote within the tick object
-          const quoteMatch = tickContent.match(/"quote"\s*:\s*(-?\d+\.?\d*)/);
-          if (quoteMatch && quoteMatch[1]) {
-            rawQuote = quoteMatch[1];
-          }
+        // Use a more specific regex to find the quote within the tick object
+        // This looks for "quote": followed by digits/dots, capturing the exact literal string
+        const tickQuoteMatch = rawData.match(/"tick"\s*:\s*\{[^}]*"quote"\s*:\s*(\d+\.?\d*)/);
+        if (tickQuoteMatch && tickQuoteMatch[1]) {
+          rawQuote = tickQuoteMatch[1];
         }
 
         const data = JSON.parse(rawData);
@@ -56,7 +52,7 @@ class DerivWebsocket {
         if (data.msg_type === 'tick' && data.tick) {
           const symbol = data.tick.symbol;
           
-          // Fallback if regex failed, using pip_size if available
+          // Fallback if regex failed, using pip_size to reconstruct the intended precision
           if (!rawQuote) {
             rawQuote = data.tick.pip_size !== undefined 
               ? data.tick.quote.toFixed(data.tick.pip_size) 
@@ -76,7 +72,7 @@ class DerivWebsocket {
           }
         }
       } catch (e) {
-        console.error("Failed to parse WebSocket message", e);
+        // Silently catch errors in real-time stream processing
       }
     };
 
@@ -85,9 +81,8 @@ class DerivWebsocket {
       setTimeout(() => this.connect(), 5000);
     };
 
-    this.ws.onerror = (err) => {
+    this.ws.onerror = () => {
       this.isConnecting = false;
-      console.error("WebSocket error", err);
     };
   }
 

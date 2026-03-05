@@ -18,7 +18,6 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { dispatchSignalToTelegram } from '@/ai/flows/dispatch-signal';
 
-// Removed Volatility 15, 30, and 90 as requested
 const VOLATILITY_INDICES = [
   { value: 'R_10', label: 'Volatility 10 Index' },
   { value: 'R_25', label: 'Volatility 25 Index' },
@@ -43,7 +42,6 @@ export default function SignalPulseDashboard() {
   const [liveTick, setLiveTick] = useState<Tick | null>(null);
   const [mounted, setMounted] = useState(false);
   
-  // Telegram Settings
   const [botToken, setBotToken] = useState('');
   const [chatId, setChatId] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -58,7 +56,6 @@ export default function SignalPulseDashboard() {
     setToDate(end);
     setSignals(SignalManager.getSignals());
     
-    // Load Telegram Settings
     setBotToken(localStorage.getItem('tg_bot_token') || '');
     setChatId(localStorage.getItem('tg_chat_id') || '');
 
@@ -177,7 +174,6 @@ export default function SignalPulseDashboard() {
   const lastDigit = useMemo(() => {
     if (!liveTick || !liveTick.rawQuote) return null;
     const str = liveTick.rawQuote;
-    // CRITICAL: Get the absolute last character of the raw string to capture zero precision
     return str.substring(str.length - 1);
   }, [liveTick]);
 
