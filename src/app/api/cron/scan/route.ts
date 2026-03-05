@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   // }
 
-  console.log("GOD FATHER: Server Engine Pulse Starting...");
+  console.log("EMPORER: Server Engine Pulse Starting...");
 
   // In a real environment, you'd fetch these from a database/cache
   // For the prototype, we assume these are passed or stored centrally

@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -272,7 +273,7 @@ export default function SignalPulseDashboard() {
         template: `🚀 <b>FROSTYTRADERS – ENGINE PULSE</b>
 
 📊 <b>Status:</b> ACTIVE
-🤖 <b>Node:</b> GOD FATHER 24/7 SCANNER
+🤖 <b>Node:</b> EMPORER 24/7 SCANNER
 ⏱ <b>Interval Sync:</b> Standard ${timeframe} Windows
 🎯 <b>Monitoring:</b> All Volatility Indices
 
@@ -321,7 +322,7 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
             <Bot className="h-8 w-8 text-accent" />
             SignalPulse <span className="text-accent uppercase font-black">FrostyTraders</span>
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm font-medium">GOD FATHER 24/7 Precision Standard-Time Sync Engine</p>
+          <p className="text-muted-foreground mt-1 text-sm font-medium">EMPORER 24/7 Precision Standard-Time Sync Engine</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="px-3 py-1 bg-white flex gap-2 items-center shadow-sm text-[10px] font-bold text-primary border-primary/20">
@@ -507,7 +508,7 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
           <CardHeader className="flex flex-row items-center justify-between pb-4 border-b">
             <div>
               <CardTitle className="text-xl font-bold flex items-center gap-2">
-                {symbol === 'ALL_MARKETS' ? 'GOD FATHER Multi-Market Scanner' : VOLATILITY_INDICES.find(i => i.value === symbol)?.label}
+                {symbol === 'ALL_MARKETS' ? 'EMPORER Multi-Market Scanner' : VOLATILITY_INDICES.find(i => i.value === symbol)?.label}
                 <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700">T{timeframe}</Badge>
               </CardTitle>
               <CardDescription className="text-xs uppercase font-bold text-muted-foreground/60 tracking-widest">
@@ -559,7 +560,7 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
                   <Activity className="h-12 w-12 text-accent animate-pulse" />
                   <div className="text-center">
                     <p className="text-[12px] font-black uppercase tracking-widest text-primary">
-                      GOD FATHER Scanner Syncing...
+                      EMPORER Scanner Syncing...
                     </p>
                     <p className="text-[10px] font-medium">
                       Waiting for the next standard {timeframe} clock interval (:00, :05, :10...).
