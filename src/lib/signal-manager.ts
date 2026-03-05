@@ -2,15 +2,19 @@
 export interface Signal {
   id: string;
   symbol: string;
-  type: string; // e.g., 'RISE', 'FALL', 'EVEN', 'ODD', 'OVER 4', 'MATCH 0'
+  type: string; // e.g., 'RISE', 'FALL', 'EVEN', 'ODD', 'OVER 2', 'UNDER 7'
   strategy: string;
   timestamp: string;
   price: number;
   lastDigit?: string;
   synced: boolean;
+  runs?: number;
 }
 
 const STORAGE_KEY = 'signalpulse_signals';
+
+// Persistent history for pattern detection
+const digitHistory: Record<string, number[]> = {};
 
 export const SignalManager = {
   saveSignal: (signal: Omit<Signal, 'id' | 'timestamp' | 'synced'>): Signal => {
@@ -21,7 +25,7 @@ export const SignalManager = {
     if (lastSignal && 
         lastSignal.symbol === signal.symbol && 
         lastSignal.type === signal.type &&
-        Date.now() - new Date(lastSignal.timestamp).getTime() < 2000) {
+        Date.now() - new Date(lastSignal.timestamp).getTime() < 3000) {
       return lastSignal;
     }
 
@@ -55,6 +59,15 @@ export const SignalManager = {
     prevPrice: number | null,
     strategy: string
   ): Signal | null => {
+    const dVal = parseInt(lastDigit);
+    if (isNaN(dVal)) return null;
+
+    // Track digit history for pattern-based strategies
+    if (!digitHistory[symbol]) digitHistory[symbol] = [];
+    digitHistory[symbol].push(dVal);
+    if (digitHistory[symbol].length > 5) digitHistory[symbol].shift();
+
+    const history = digitHistory[symbol];
     
     switch (strategy) {
       case 'RISE_FALL':
@@ -68,10 +81,10 @@ export const SignalManager = {
         break;
 
       case 'EVEN_ODD':
-        const digit = parseInt(lastDigit);
-        if (!isNaN(digit)) {
-          const isEven = digit % 2 === 0;
-          return SignalManager.saveSignal({ 
+        const isEven = dVal % 2 === 0;
+        // Require 2 consecutive same parity for "High Prob" signal
+        if (history.length >= 2 && history[history.length-2] % 2 === (isEven ? 0 : 1)) {
+           return SignalManager.saveSignal({ 
             symbol, 
             type: isEven ? 'EVEN' : 'ODD', 
             strategy, 
@@ -82,26 +95,45 @@ export const SignalManager = {
         break;
 
       case 'OVER_UNDER':
-        const val = parseInt(lastDigit);
-        if (!isNaN(val)) {
-          // Threshold is 4 (Standard Deriv pattern)
-          if (val > 4) {
-            return SignalManager.saveSignal({ symbol, type: 'OVER 4', strategy, price: currentPrice, lastDigit });
-          } else if (val < 5) {
-             return SignalManager.saveSignal({ symbol, type: 'UNDER 5', strategy, price: currentPrice, lastDigit });
+        /**
+         * SPECIALIZED OVER 2 / UNDER 7 STRATEGY
+         * Strategy: Wait for 3 consecutive digits meeting the condition (Safe Entry).
+         * Runs: Optimized for 1 Run.
+         */
+        if (history.length >= 3) {
+          const last3 = history.slice(-3);
+          const allOver2 = last3.every(d => d > 2);
+          const allUnder7 = last3.every(d => d < 7);
+
+          if (allOver2) {
+            return SignalManager.saveSignal({ 
+              symbol, 
+              type: 'OVER 2', 
+              strategy, 
+              price: currentPrice, 
+              lastDigit,
+              runs: 1 
+            });
+          } else if (allUnder7) {
+            return SignalManager.saveSignal({ 
+              symbol, 
+              type: 'UNDER 7', 
+              strategy, 
+              price: currentPrice, 
+              lastDigit,
+              runs: 1
+            });
           }
         }
         break;
 
       case 'MATCHES_DIFFERS':
-        const d = parseInt(lastDigit);
-        if (!isNaN(d)) {
-          // Target is 0 (Standard Deriv pattern)
-          if (d === 0) {
-            return SignalManager.saveSignal({ symbol, type: 'MATCH 0', strategy, price: currentPrice, lastDigit });
-          } else {
-            return SignalManager.saveSignal({ symbol, type: 'DIFFERS 0', strategy, price: currentPrice, lastDigit });
-          }
+        // Target is 0
+        if (dVal === 0) {
+          return SignalManager.saveSignal({ symbol, type: 'MATCH 0', strategy, price: currentPrice, lastDigit });
+        } else if (history.length >= 4 && history.slice(-4).every(d => d !== 0)) {
+           // Differ signal after 4 non-zero ticks
+          return SignalManager.saveSignal({ symbol, type: 'DIFFERS 0', strategy, price: currentPrice, lastDigit });
         }
         break;
     }

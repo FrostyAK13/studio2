@@ -4,7 +4,7 @@
  * @fileOverview Telegram Signal Dispatcher Flow.
  * 
  * Uses Genkit to format market signals with a "God Father" persona and 
- * dispatches them to a Telegram Bot. Supports advanced strategy types.
+ * dispatches them to a Telegram Bot. Supports advanced strategy types and runs.
  */
 
 import { ai } from '@/ai/genkit';
@@ -14,8 +14,9 @@ const DispatchInputSchema = z.object({
   botToken: z.string().describe('The Telegram Bot API token.'),
   chatId: z.string().describe('The destination Telegram Chat ID.'),
   symbol: z.string().describe('The market symbol.'),
-  type: z.string().describe('The specific signal type (RISE, FALL, OVER 4, EVEN, etc.).'),
+  type: z.string().describe('The specific signal type (RISE, FALL, OVER 2, UNDER 7, etc.).'),
   price: z.number().describe('The execution price.'),
+  runs: z.number().optional().describe('Number of runs/duration for the trade.'),
 });
 
 const DispatchOutputSchema = z.object({
@@ -37,11 +38,14 @@ const formatPrompt = ai.definePrompt({
   Symbol: {{{symbol}}}
   Signal Action: {{{type}}}
   Execution Price: {{{price}}}
+  {{#if runs}}Suggested Runs: {{{runs}}}{{/if}}
   
   Instructions:
   - Use bold text for key details.
-  - Use market-appropriate emojis (🚀, 📈, 📉, 🎯).
+  - Use market-appropriate emojis (🚀, 📈, 📉, 🎯, ⚡).
   - Include "GOD FATHER INTELLIGENCE" branding.
+  - Highlight the "ENTRY POINT" as the current price.
+  - If runs are provided, emphasize that this is a SHORT DURATION entry.
   - Keep it concise for mobile users.
   - Output the final message text only.`,
 });

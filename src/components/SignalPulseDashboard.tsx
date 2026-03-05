@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { format, subMonths, parseISO } from 'date-fns';
-import { Search, Calendar as CalendarIcon, TrendingUp, TrendingDown, RefreshCw, Activity, Layers, Zap, Send, Settings, Bot, Target, Hash, ArrowUpDown } from 'lucide-react';
+import { Search, Calendar as CalendarIcon, TrendingUp, TrendingDown, RefreshCw, Activity, Layers, Zap, Send, Settings, Bot, Target, Hash, ArrowUpDown, Clock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -38,7 +38,7 @@ const VOLATILITY_INDICES = [
 const STRATEGIES = [
   { value: 'RISE_FALL', label: 'Rise / Fall', icon: ArrowUpDown },
   { value: 'EVEN_ODD', label: 'Even / Odd', icon: Hash },
-  { value: 'OVER_UNDER', label: 'Over / Under', icon: Target },
+  { value: 'OVER_UNDER', label: 'Over / Under (2/7)', icon: Target },
   { value: 'MATCHES_DIFFERS', label: 'Matches / Differs', icon: Zap },
 ];
 
@@ -77,10 +77,6 @@ export default function SignalPulseDashboard() {
     handleSearch('R_100', start, end);
   }, []);
 
-  /**
-   * CRITICAL: Extract the last digit from the rawQuote string.
-   * This preserves trailing zeros which are lost in numeric format.
-   */
   const lastDigit = useMemo(() => {
     if (!liveTick || !liveTick.rawQuote) return null;
     const str = liveTick.rawQuote;
@@ -108,7 +104,6 @@ export default function SignalPulseDashboard() {
         return prev;
       });
 
-      // Process signals based on current strategy
       const currentLastDigit = tick.rawQuote.substring(tick.rawQuote.length - 1);
       const newSignal = SignalManager.processSignalsFromData(
         symbol, 
@@ -134,13 +129,13 @@ export default function SignalPulseDashboard() {
 
     const currentSymbolLabel = VOLATILITY_INDICES.find(i => i.value === signal.symbol)?.label || signal.symbol;
     
-    // We update the flow to handle custom types better
     const result = await dispatchSignalToTelegram({
       botToken,
       chatId,
       symbol: currentSymbolLabel,
-      type: signal.type as any, // Cast for generic support in flow
+      type: signal.type,
       price: signal.price,
+      runs: signal.runs,
     });
 
     if (result.success) {
@@ -218,7 +213,7 @@ export default function SignalPulseDashboard() {
             <Bot className="h-8 w-8 text-accent" />
             SignalPulse <span className="text-accent">GOD FATHER</span>
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm">Advanced Multi-Strategy Intelligence</p>
+          <p className="text-muted-foreground mt-1 text-sm">Advanced Strategy Intelligence v2.0</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowSettings(!showSettings)} className="gap-2 text-xs">
@@ -462,6 +457,12 @@ export default function SignalPulseDashboard() {
                           <Badge variant="outline" className="text-[9px] h-4 px-1 leading-none uppercase font-black bg-slate-50 border-slate-200">
                             {signal.type}
                           </Badge>
+                          {signal.runs && (
+                            <Badge className="bg-primary/10 text-primary border-primary/20 text-[8px] h-4">
+                              <Clock className="h-2 w-2 mr-1" />
+                              {signal.runs} RUN
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-[10px] text-muted-foreground font-medium">{format(new Date(signal.timestamp), 'HH:mm:ss')} | Digit: {signal.lastDigit}</div>
                       </div>
