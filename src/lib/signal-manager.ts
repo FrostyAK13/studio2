@@ -11,6 +11,7 @@ export interface Signal {
   synced: boolean;
   runs?: number;
   interval?: string;
+  rationale?: string;
 }
 
 const STORAGE_KEY = 'signalpulse_signals';
@@ -28,12 +29,12 @@ export const SignalManager = {
     
     const signals = SignalManager.getSignals();
     
-    // Check if we already have a very recent signal for this symbol and type to avoid spamming
+    // De-duplication check for very rapid signals
     const lastSignal = signals[0];
     if (lastSignal && 
         lastSignal.symbol === signal.symbol && 
         lastSignal.type === signal.type &&
-        Date.now() - new Date(lastSignal.timestamp).getTime() < 3000) {
+        Date.now() - new Date(lastSignal.timestamp).getTime() < 5000) {
       return lastSignal;
     }
 
@@ -62,11 +63,6 @@ export const SignalManager = {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   },
 
-  /**
-   * Checks if enough time has passed based on the selected interval.
-   * "1 market per timeframe" logic: If scanner is on, use a global cooldown.
-   * Otherwise use per-market cooldown.
-   */
   shouldProcessSignal: (symbol: string, strategy: string, intervalMinutes: number, isScanner: boolean): boolean => {
     if (typeof window === 'undefined') return false;
     
@@ -132,9 +128,15 @@ export const SignalManager = {
       case 'RISE_FALL':
         if (prevPrice !== null) {
           if (currentPrice > prevPrice) {
-            result = SignalManager.saveSignal({ symbol, type: 'RISE', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr });
+            result = SignalManager.saveSignal({ 
+              symbol, type: 'RISE', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr,
+              rationale: "Bullish price movement detected on current tick."
+            });
           } else if (currentPrice < prevPrice) {
-            result = SignalManager.saveSignal({ symbol, type: 'FALL', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr });
+            result = SignalManager.saveSignal({ 
+              symbol, type: 'FALL', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr,
+              rationale: "Bearish price movement detected on current tick."
+            });
           }
         }
         break;
@@ -149,7 +151,8 @@ export const SignalManager = {
             price: currentPrice, 
             rawPrice,
             lastDigit,
-            interval: intervalStr
+            interval: intervalStr,
+            rationale: `Double ${isEven ? 'Even' : 'Odd'} digit sequence detected.`
           });
         }
         break;
@@ -169,7 +172,8 @@ export const SignalManager = {
               rawPrice,
               lastDigit,
               runs: 1,
-              interval: intervalStr
+              interval: intervalStr,
+              rationale: "Strong bullish momentum: last 3 digits confirmed > 2."
             });
           } else if (allUnder7) {
             result = SignalManager.saveSignal({ 
@@ -180,7 +184,8 @@ export const SignalManager = {
               rawPrice,
               lastDigit,
               runs: 1,
-              interval: intervalStr
+              interval: intervalStr,
+              rationale: "Strong bearish momentum: last 3 digits confirmed < 7."
             });
           }
         }
@@ -188,9 +193,15 @@ export const SignalManager = {
 
       case 'MATCHES_DIFFERS':
         if (dVal === 0) {
-          result = SignalManager.saveSignal({ symbol, type: 'MATCH 0', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr });
+          result = SignalManager.saveSignal({ 
+            symbol, type: 'MATCH 0', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr,
+            rationale: "Zero match detected. High volatility reversal potential."
+          });
         } else if (history.length >= 4 && history.slice(-4).every(d => d !== 0)) {
-          result = SignalManager.saveSignal({ symbol, type: 'DIFFERS 0', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr });
+          result = SignalManager.saveSignal({ 
+            symbol, type: 'DIFFERS 0', strategy, price: currentPrice, rawPrice, lastDigit, interval: intervalStr,
+            rationale: "Extended zero-absent sequence detected (4 ticks)."
+          });
         }
         break;
     }

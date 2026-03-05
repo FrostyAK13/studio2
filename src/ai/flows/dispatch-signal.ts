@@ -3,9 +3,8 @@
 /**
  * @fileOverview FROSTYTRADERS Signal Dispatcher Flow.
  * 
- * Uses Genkit to format market signals using a customizable template exactly as requested.
- * Uses HTML parse mode for Telegram to ensure high reliability with URLs and special characters.
- * Implements robust error handling and timeout for the Next.js Server Action environment.
+ * Uses Genkit to format market signals using a customizable template.
+ * Now dynamically handles the {notes} placeholder for signal rationale.
  */
 
 import { ai } from '@/ai/genkit';
@@ -16,11 +15,12 @@ const DispatchInputSchema = z.object({
   chatId: z.string().describe('The destination Telegram Chat ID.'),
   symbol: z.string().describe('The market symbol.'),
   strategy: z.string().describe('The strategy name.'),
-  type: z.string().describe('The specific signal type (direction).'),
-  price: z.string().describe('The execution price (Plain Last Digit).'),
+  type: z.string().describe('The specific signal type.'),
+  price: z.string().describe('The execution price (plain last digit).'),
   runs: z.number().optional().describe('Number of runs.'),
   template: z.string().describe('The custom template string with placeholders.'),
   time: z.string().describe('The formatted local time.'),
+  rationale: z.string().optional().describe('The reason for the signal.'),
 });
 
 const DispatchOutputSchema = z.object({
@@ -53,24 +53,24 @@ const dispatchSignalFlow = ai.defineFlow(
   async (input) => {
     try {
       /**
-       * Dynamically replace placeholders in the user-provided template.
+       * Dynamically replace placeholders in the template.
        */
       let message = input.template;
       message = message.replace(/{market}/g, input.symbol);
       message = message.replace(/{strategy}/g, input.strategy);
       message = message.replace(/{signal}/g, input.type);
-      message = message.replace(/{entry}/g, input.price); // This is now the plain last digit
+      message = message.replace(/{entry}/g, input.price);
       message = message.replace(/{time}/g, input.time);
       message = message.replace(/{runs}/g, input.runs?.toString() || "1");
       
-      // Default timeframe logic if not provided in template
+      // Default mappings if missing in specific inputs
       message = message.replace(/{timeframe}/g, "5m");
-      
-      // Handle additional static/optional fields with professional defaults
       message = message.replace(/{recovery}/g, "Martingale");
       message = message.replace(/{confidence}/g, "98%");
       message = message.replace(/{contact}/g, "@FrostyTradersSupport");
-      message = message.replace(/{notes}/g, "Follow strict risk management.");
+      
+      // Inject the dynamic rationale into the {notes} placeholder
+      message = message.replace(/{notes}/g, input.rationale || "Follow strict risk management.");
 
       const botToken = input.botToken.trim();
       const chatId = input.chatId.trim();
@@ -103,7 +103,7 @@ const dispatchSignalFlow = ai.defineFlow(
       if (!result.ok) {
         return { 
           success: false, 
-          error: `Telegram Error: ${result.description} (Code: ${result.error_code})` 
+          error: `Telegram Error: ${result.description}` 
         };
       }
 
