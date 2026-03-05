@@ -182,6 +182,7 @@ export default function SignalPulseDashboard() {
   const lastDigit = useMemo(() => {
     if (!liveTick) return null;
     const str = liveTick.rawQuote;
+    // CRITICAL: Get the absolute last character of the raw string to capture zeros
     return str.charAt(str.length - 1);
   }, [liveTick]);
 

@@ -1,14 +1,14 @@
-
 /**
  * @fileOverview Deriv WebSocket Service
  * Handles real-time connection to Deriv API for market ticks.
+ * Extracts raw quote strings to preserve precision for last-digit analysis.
  */
 
 export type Tick = {
   quote: number;
   epoch: number;
   symbol: string;
-  rawQuote: string; // Keep the raw string to preserve exact digits
+  rawQuote: string; // The exact string from the wire to preserve trailing zeros
 };
 
 class DerivWebsocket {
@@ -26,7 +26,6 @@ class DerivWebsocket {
 
     this.ws.onopen = () => {
       this.isConnecting = false;
-      // Re-subscribe to all active symbols on reconnect
       this.subscribers.forEach((_, symbol) => {
         this.sendSubscribe(symbol);
       });
@@ -34,14 +33,25 @@ class DerivWebsocket {
 
     this.ws.onmessage = (msg) => {
       try {
-        const data = JSON.parse(msg.data);
+        const rawData = msg.data;
+        const data = JSON.parse(rawData);
+
         if (data.msg_type === 'tick' && data.tick) {
           const symbol = data.tick.symbol;
+          
+          // CRITICAL: Extract the quote as a string directly from the raw JSON string 
+          // to preserve trailing zeros (e.g., "10.50" instead of 10.5)
+          let rawQuote = data.tick.quote.toString();
+          const quoteMatch = rawData.match(/"quote":\s*([\d.]+)/);
+          if (quoteMatch && quoteMatch[1]) {
+            rawQuote = quoteMatch[1];
+          }
+
           const tick: Tick = {
             quote: data.tick.quote,
             epoch: data.tick.epoch,
             symbol: data.tick.symbol,
-            rawQuote: data.tick.quote.toString(),
+            rawQuote: rawQuote,
           };
           
           const symbolSubscribers = this.subscribers.get(symbol);
