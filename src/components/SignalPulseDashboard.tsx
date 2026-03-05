@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { format } from 'date-fns';
-import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings, AlertCircle, Play, Square, Database } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -75,7 +75,7 @@ export default function SignalPulseDashboard() {
   const [symbol, setSymbol] = useState('R_100');
   const [strategy, setStrategy] = useState('RISE_FALL');
   const [timeframe, setTimeframe] = useState('5m');
-  const [data, setData] = useState<StockDataPoint[]>([]);
+  const [isEngineActive, setIsEngineActive] = useState(false);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
@@ -111,7 +111,8 @@ export default function SignalPulseDashboard() {
       window.addEventListener('online', handleOnline);
       window.addEventListener('offline', handleOffline);
 
-      const syncInterval = setInterval(handleSync, 30000);
+      // 24/7 Sync Loop: Every 15 seconds try to clear the offline queue
+      const syncInterval = setInterval(handleSync, 15000);
 
       return () => {
         window.removeEventListener('online', handleOnline);
@@ -128,7 +129,10 @@ export default function SignalPulseDashboard() {
   }, [liveTick]);
 
   useEffect(() => {
-    if (!symbol || !mounted) return;
+    if (!symbol || !mounted || !isEngineActive) {
+      setLiveTick(null);
+      return;
+    }
 
     const unsubscribe = derivWs.subscribe(symbol, (tick) => {
       setLiveTick(tick);
@@ -153,10 +157,13 @@ export default function SignalPulseDashboard() {
     });
 
     return () => unsubscribe();
-  }, [symbol, strategy, timeframe, mounted]);
+  }, [symbol, strategy, timeframe, mounted, isEngineActive]);
 
   const handleAutoDispatch = async (signal: Signal) => {
-    if (!botToken || !chatId || !navigator.onLine) return;
+    if (!botToken || !chatId) return;
+    
+    // If offline, it stays in the queue (localStorage) via SignalManager.saveSignal
+    if (!navigator.onLine) return;
 
     const currentSymbolLabel = VOLATILITY_INDICES.find(i => i.value === signal.symbol)?.label || signal.symbol;
     const currentStrategyLabel = STRATEGIES.find(s => s.value === signal.strategy)?.label || signal.strategy;
@@ -180,6 +187,23 @@ export default function SignalPulseDashboard() {
       }
     } catch (e) {
       console.error("Auto-dispatch failed", e);
+    }
+  };
+
+  const handleSync = async () => {
+    if (!navigator.onLine || isSyncing) return;
+    const currentSignals = SignalManager.getSignals();
+    const unsynced = currentSignals.filter(s => !s.synced);
+    if (unsynced.length === 0) return;
+
+    setIsSyncing(true);
+    try {
+      for (const signal of unsynced) {
+        await handleAutoDispatch(signal);
+      }
+      setSignals(SignalManager.getSignals());
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -244,22 +268,17 @@ export default function SignalPulseDashboard() {
     });
   };
 
-  const handleSync = async () => {
-    if (!navigator.onLine || isSyncing) return;
-    setIsSyncing(true);
-    try {
-      const currentSignals = SignalManager.getSignals();
-      const unsynced = currentSignals.filter(s => !s.synced);
-      if (unsynced.length === 0) return;
-
-      for (const signal of unsynced) {
-        await handleAutoDispatch(signal);
-      }
-      setSignals(SignalManager.getSignals());
-    } finally {
-      setIsSyncing(false);
-    }
+  const toggleEngine = () => {
+    setIsEngineActive(!isEngineActive);
+    toast({
+      title: !isEngineActive ? "Engine Started" : "Engine Stopped",
+      description: !isEngineActive 
+        ? "GOD FATHER analysis is now active 24/7." 
+        : "Automated polling has been paused.",
+    });
   };
+
+  const unsyncedCount = signals.filter(s => !s.synced).length;
 
   const previewContent = useMemo(() => {
     let content = template;
@@ -272,9 +291,8 @@ export default function SignalPulseDashboard() {
     content = content.replace(/{recovery}/g, "Martingale");
     content = content.replace(/{confidence}/g, "95%");
     content = content.replace(/{contact}/g, "@FrostyTradersSupport");
-    content = content.replace(/{notes}/g, "Wait for 3-digit streak.");
+    content = content.replace(/{notes}/g, "Follow strict risk management.");
     
-    // For local preview, we strip HTML tags to make it readable in the pre tag
     return content.replace(/<[^>]*>?/gm, '');
   }, [template, liveTick]);
 
@@ -297,7 +315,7 @@ export default function SignalPulseDashboard() {
           </Button>
           <Badge variant="outline" className={cn("px-3 py-1 bg-white flex gap-2 items-center shadow-sm text-[10px] font-bold", isOnline ? "text-emerald-600" : "text-rose-600 border-rose-200")}>
             {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-            {isOnline ? 'ONLINE & SYNCED' : 'OFFLINE MODE'}
+            {isOnline ? 'ONLINE' : 'OFFLINE MODE'}
           </Badge>
         </div>
       </header>
@@ -389,15 +407,49 @@ export default function SignalPulseDashboard() {
 
       <section className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-1 space-y-6">
-          <Card className="shadow-sm border-none ring-1 ring-border/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-primary/80">Analysis Config</CardTitle>
+          <Card className={cn("shadow-2xl border-none transition-all duration-500", isEngineActive ? "ring-2 ring-accent bg-white" : "bg-white opacity-90")}>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-primary/80">Engine Control</CardTitle>
+              {isEngineActive && <Activity className="h-4 w-4 text-accent animate-pulse" />}
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-1.5">
+              <div className="space-y-4">
+                <Button 
+                  onClick={toggleEngine} 
+                  className={cn(
+                    "w-full h-12 text-xs font-black uppercase tracking-widest shadow-lg transition-all active:scale-95",
+                    isEngineActive ? "bg-rose-600 hover:bg-rose-700 shadow-rose-200" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200"
+                  )}
+                >
+                  {isEngineActive ? (
+                    <><Square className="h-4 w-4 mr-2 fill-current" /> STOP 24/7 ENGINE</>
+                  ) : (
+                    <><Play className="h-4 w-4 mr-2 fill-current" /> START 24/7 ENGINE</>
+                  )}
+                </Button>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-border/50 text-center">
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Queue</p>
+                    <div className="flex items-center justify-center gap-1">
+                      <Database className="h-3 w-3 text-primary opacity-50" />
+                      <span className="text-sm font-black font-mono">{unsyncedCount}</span>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-border/50 text-center">
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Status</p>
+                    <div className="flex items-center justify-center gap-1">
+                      <div className={cn("w-2 h-2 rounded-full", isEngineActive ? "bg-emerald-500 animate-pulse" : "bg-slate-300")} />
+                      <span className="text-[10px] font-black uppercase">{isEngineActive ? "ACTIVE" : "IDLE"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 pt-2">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase">Target Market</label>
-                <Select value={symbol} onValueChange={setSymbol}>
-                  <SelectTrigger className="h-10 text-xs font-medium">
+                <Select value={symbol} onValueChange={setSymbol} disabled={isEngineActive}>
+                  <SelectTrigger className="h-10 text-xs font-medium bg-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -408,8 +460,8 @@ export default function SignalPulseDashboard() {
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase">Strategy</label>
-                <Select value={strategy} onValueChange={setStrategy}>
-                  <SelectTrigger className="h-10 text-xs font-medium">
+                <Select value={strategy} onValueChange={setStrategy} disabled={isEngineActive}>
+                  <SelectTrigger className="h-10 text-xs font-medium bg-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -419,9 +471,9 @@ export default function SignalPulseDashboard() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase text-accent">Signal Frequency</label>
-                <Select value={timeframe} onValueChange={setTimeframe}>
-                  <SelectTrigger className="h-10 text-xs font-bold border-accent/20 text-accent">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase text-accent">Frequency (Interval)</label>
+                <Select value={timeframe} onValueChange={setTimeframe} disabled={isEngineActive}>
+                  <SelectTrigger className="h-10 text-xs font-bold border-accent/20 text-accent bg-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -429,23 +481,13 @@ export default function SignalPulseDashboard() {
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="pt-2">
-                <div className="p-3 bg-primary/5 rounded-lg border border-primary/10 flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold text-primary uppercase">24/7 Status</p>
-                    <div className="text-xs font-bold flex items-center gap-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      ACTIVE POLLING
-                    </div>
-                  </div>
-                  <Activity className="h-4 w-4 text-primary opacity-50" />
-                </div>
-              </div>
             </CardContent>
           </Card>
 
-          <Card className="shadow-lg border-none bg-primary text-primary-foreground">
+          <Card className="shadow-lg border-none bg-primary text-primary-foreground overflow-hidden relative">
+            <div className="absolute top-0 right-0 p-2 opacity-10">
+              <Zap className="h-16 w-16" />
+            </div>
             <CardContent className="pt-6">
               <div className="flex flex-col items-center justify-center text-center space-y-2">
                 <p className="text-[10px] font-bold uppercase opacity-70 tracking-[0.2em]">Live Pulse Node</p>
@@ -453,7 +495,7 @@ export default function SignalPulseDashboard() {
                   {liveTick ? liveTick.rawQuote : '---.---'}
                 </div>
                 <div className="mt-4 w-full pt-4 border-t border-white/10 flex justify-between items-center">
-                  <span className="text-[10px] font-bold opacity-60">LAST DIGIT:</span>
+                  <span className="text-[10px] font-bold opacity-60 uppercase">Last Digit:</span>
                   <span className="text-4xl font-bold text-accent font-mono underline underline-offset-4 decoration-accent/30">
                     {lastDigit || '-'}
                   </span>
@@ -471,64 +513,30 @@ export default function SignalPulseDashboard() {
                 <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700">T{timeframe}</Badge>
               </CardTitle>
               <CardDescription className="text-xs uppercase font-bold text-muted-foreground/60 tracking-widest">
-                24/7 Automated Node Monitoring
+                Real-Time Node Telemetry
               </CardDescription>
             </div>
             <div className="text-right">
               <div className="text-2xl font-mono font-bold text-primary tabular-nums">
                 {liveTick?.rawQuote || '---'}
               </div>
-              <p className="text-[10px] font-bold text-emerald-600 uppercase">Live Tick Success</p>
+              <p className="text-[10px] font-bold text-emerald-600 uppercase">Connection Active</p>
             </div>
           </CardHeader>
           <CardContent className="pt-6">
              <div className="h-[320px] w-full">
-              {data.length > 0 || liveTick ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data}>
-                    <defs>
-                      <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.15}/>
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                    <XAxis dataKey="date" hide />
-                    <YAxis 
-                      domain={['auto', 'auto']} 
-                      tick={{fontSize: 9, fontWeight: 600, fontFamily: 'monospace'}}
-                      stroke="hsl(var(--muted-foreground))"
-                      orientation="right"
-                    />
-                    <Tooltip 
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="bg-white p-3 rounded-lg shadow-xl border border-border">
-                              <p className="text-lg font-mono font-bold text-primary">
-                                {payload[0].value}
-                              </p>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="price" 
-                      stroke="hsl(var(--primary))" 
-                      strokeWidth={2}
-                      fillOpacity={1} 
-                      fill="url(#colorPrice)" 
-                      isAnimationActive={false}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+              {isEngineActive && liveTick ? (
+                <div className="h-full flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-2xl bg-slate-50 gap-2">
+                  <Activity className="h-12 w-12 text-accent opacity-20 animate-pulse" />
+                  <div className="text-center">
+                    <p className="text-[12px] font-black uppercase tracking-widest text-primary">Engine Running</p>
+                    <p className="text-[10px] font-medium opacity-60">Processing Live Ticks 24/7</p>
+                  </div>
+                </div>
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-2xl bg-slate-50 gap-2">
-                  <RefreshCw className="h-6 w-6 animate-spin opacity-20" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest">Awaiting Live Node Pulse...</p>
+                  <Play className="h-6 w-6 opacity-20" />
+                  <p className="text-[10px] font-bold uppercase tracking-widest">Start Engine to View Live Stream</p>
                 </div>
               )}
             </div>
@@ -543,12 +551,14 @@ export default function SignalPulseDashboard() {
               <CardTitle className="text-lg font-bold">Strategy Feed</CardTitle>
               <CardDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">Persistent Signal Log</CardDescription>
             </div>
-            <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold uppercase border-accent/20" onClick={handleSync} disabled={isSyncing}>
-              {isSyncing ? <RefreshCw className="h-3 w-3 animate-spin mr-1" /> : 'Force Sync'}
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold uppercase border-accent/20" onClick={handleSync} disabled={isSyncing || !isOnline}>
+                {isSyncing ? <RefreshCw className="h-3 w-3 animate-spin mr-1" /> : 'Force Sync'}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
               {signals.length > 0 ? (
                 signals.map((signal) => (
                   <div key={signal.id} className="flex items-center justify-between p-3 rounded-xl bg-white border border-border shadow-sm">
@@ -562,7 +572,7 @@ export default function SignalPulseDashboard() {
                       <div>
                         <div className="font-bold flex items-center gap-2 text-sm">
                           {signal.type}
-                          <Badge className="text-[8px] h-4 bg-primary/10 text-primary border-none">T{signal.interval || 'OFF'}</Badge>
+                          <Badge className="text-[8px] h-4 bg-primary/10 text-primary border-none uppercase">T{signal.interval || 'OFF'}</Badge>
                         </div>
                         <div className="text-[10px] text-muted-foreground font-medium">{format(new Date(signal.timestamp), 'HH:mm:ss')} | Digit: {signal.lastDigit}</div>
                       </div>
@@ -571,7 +581,7 @@ export default function SignalPulseDashboard() {
                       <div className="font-mono font-bold text-sm tracking-tighter">{signal.rawPrice}</div>
                       <div className={cn("text-[9px] font-bold uppercase tracking-widest flex items-center justify-end gap-1", signal.synced ? "text-emerald-600" : "text-amber-600")}>
                         {signal.synced ? <Zap className="h-2 w-2" /> : <Clock className="h-2 w-2" />}
-                        {signal.synced ? 'Dispatched' : 'Queued'}
+                        {signal.synced ? 'Dispatched' : 'Queued (Offline)'}
                       </div>
                     </div>
                   </div>
@@ -590,27 +600,28 @@ export default function SignalPulseDashboard() {
             <CardTitle className="text-lg">Network Intelligence</CardTitle>
             <CardDescription className="text-xs font-bold uppercase tracking-widest opacity-60">Sync & Latency Metrics</CardDescription>
           </CardHeader>
-          <CardContent className="h-[300px] flex items-center justify-center">
-            <div className="grid grid-cols-2 gap-8 w-full">
+          <CardContent className="h-[400px] flex items-center justify-center">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
               <div className="space-y-4">
                 <div className="p-4 rounded-2xl bg-white border shadow-sm">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Total Signals</p>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Total Signals (Session)</p>
                   <p className="text-3xl font-mono font-bold text-primary">{signals.length}</p>
                 </div>
                 <div className="p-4 rounded-2xl bg-white border shadow-sm">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Sync Status</p>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Queue Persistence</p>
                   <div className="text-lg font-bold flex items-center gap-2">
                     <div className={cn("w-2 h-2 rounded-full", isOnline ? "bg-emerald-500" : "bg-rose-500")} />
-                    {isOnline ? 'HEALTHY' : 'PENDING'}
+                    {isOnline ? 'HEALTHY SYNC' : 'OFFLINE BUFFERING'}
                   </div>
+                  <p className="text-[9px] text-muted-foreground mt-1 font-bold uppercase">{unsyncedCount} signals waiting to sync</p>
                 </div>
               </div>
-              <div className="flex flex-col items-center justify-center p-8 bg-accent/5 rounded-[2.5rem] border border-accent/10 relative overflow-hidden">
-                <Activity className="absolute h-48 w-48 text-accent/5 -right-8 -bottom-8" />
+              <div className="flex flex-col items-center justify-center p-8 bg-accent/5 rounded-[2.5rem] border border-accent/10 relative overflow-hidden group">
+                <Activity className="absolute h-48 w-48 text-accent/5 -right-8 -bottom-8 group-hover:scale-110 transition-transform duration-500" />
                 <div className="z-10 text-center">
-                  <p className="text-[10px] font-bold text-accent uppercase mb-2">Efficiency Rating</p>
+                  <p className="text-[10px] font-bold text-accent uppercase mb-2">24/7 Reliability</p>
                   <div className="text-5xl font-mono font-bold text-accent tracking-tighter">100%</div>
-                  <p className="text-[10px] text-muted-foreground mt-3 font-bold uppercase tracking-widest">Persistent Storage ON</p>
+                  <p className="text-[10px] text-muted-foreground mt-3 font-bold uppercase tracking-widest">Automated Guard ON</p>
                 </div>
               </div>
             </div>

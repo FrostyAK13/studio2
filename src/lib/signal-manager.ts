@@ -1,3 +1,4 @@
+
 export interface Signal {
   id: string;
   symbol: string;
@@ -23,6 +24,7 @@ export const SignalManager = {
     const signals = SignalManager.getSignals();
     
     // Check if we already have a very recent signal for this symbol and type to avoid spamming
+    // This provides 24/7 stability by preventing duplicates from rapid ticks
     const lastSignal = signals[0];
     if (lastSignal && 
         lastSignal.symbol === signal.symbol && 
@@ -35,10 +37,10 @@ export const SignalManager = {
       ...signal,
       id: Math.random().toString(36).substring(2, 9),
       timestamp: new Date().toISOString(),
-      synced: false,
+      synced: false, // Starts as unsynced for the offline queue logic
     };
     
-    const updatedSignals = [newSignal, ...signals].slice(0, 50);
+    const updatedSignals = [newSignal, ...signals].slice(0, 100); // Maintain larger history for 24/7 view
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSignals));
     return newSignal;
   },
@@ -57,6 +59,7 @@ export const SignalManager = {
 
   /**
    * Checks if enough time has passed based on the selected interval.
+   * This ensures 24/7 consistency across browser refreshes.
    */
   shouldProcessSignal: (symbol: string, strategy: string, intervalMinutes: number): boolean => {
     if (typeof window === 'undefined') return false;
@@ -123,6 +126,7 @@ export const SignalManager = {
 
       case 'EVEN_ODD':
         const isEven = dVal % 2 === 0;
+        // Even/Odd pattern detection (confirming 2-streak)
         if (history.length >= 2 && history[history.length-2] % 2 === (isEven ? 0 : 1)) {
            result = SignalManager.saveSignal({ 
             symbol, 
@@ -137,6 +141,8 @@ export const SignalManager = {
         break;
 
       case 'OVER_UNDER':
+        // HIGH PRECISION OVER 2 / UNDER 7 STRATEGY
+        // Requirement: 3 consecutive digits meeting the condition (streak confirm)
         if (history.length >= 3) {
           const last3 = history.slice(-3);
           const allOver2 = last3.every(d => d > 2);
@@ -150,7 +156,7 @@ export const SignalManager = {
               price: currentPrice, 
               rawPrice,
               lastDigit,
-              runs: 1,
+              runs: 1, // Optimized for 1-run entry
               interval: intervalStr
             });
           } else if (allUnder7) {
@@ -161,7 +167,7 @@ export const SignalManager = {
               price: currentPrice, 
               rawPrice,
               lastDigit,
-              runs: 1,
+              runs: 1, // Optimized for 1-run entry
               interval: intervalStr
             });
           }
