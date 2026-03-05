@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { format } from 'date-fns';
-import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings, Play, Square, Database } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings, Play, Square, Database, Server } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,6 @@ const STRATEGIES = [
   { value: 'OVER_UNDER', label: 'Over / Under (2/7)', icon: Target },
   { value: 'RISE_FALL', label: 'Rise / Fall', icon: ArrowUpDown },
   { value: 'EVEN_ODD', label: 'Even / Odd', icon: Hash },
-  { value: 'MATCHES_DIFFERS', label: 'Matches / Differs', icon: Zap },
 ];
 
 const TIMEFRAMES = [
@@ -79,7 +78,6 @@ export default function SignalPulseDashboard() {
   const [isOnline, setIsOnline] = useState(true);
   const [mounted, setMounted] = useState(false);
   
-  // Settings
   const [botToken, setBotToken] = useState('');
   const [chatId, setChatId] = useState('');
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
@@ -107,7 +105,6 @@ export default function SignalPulseDashboard() {
       window.addEventListener('online', handleOnline);
       window.addEventListener('offline', handleOffline);
 
-      // Dedicated 24/7 Sync Sentinel
       const syncInterval = setInterval(handleSync, 15000);
 
       return () => {
@@ -139,7 +136,6 @@ export default function SignalPulseDashboard() {
 
     targets.forEach(s => {
       const unsubscribe = derivWs.subscribe(s, (tick) => {
-        // Only update live tick display for the main selection or scanner head
         if (!isScannerMode || s === targets[0]) {
            setLiveTick(tick);
         }
@@ -174,10 +170,7 @@ export default function SignalPulseDashboard() {
 
   const handleAutoDispatch = async (signal: Signal) => {
     if (!botToken || !chatId) return;
-    if (!navigator.onLine) {
-       console.log("Offline: Signal queued in local pulse storage.");
-       return;
-    }
+    if (!navigator.onLine) return;
 
     const currentSymbolLabel = VOLATILITY_INDICES.find(i => i.value === signal.symbol)?.label || signal.symbol;
     const currentStrategyLabel = STRATEGIES.find(s => s.value === signal.strategy)?.label || signal.strategy;
@@ -189,7 +182,7 @@ export default function SignalPulseDashboard() {
         symbol: currentSymbolLabel,
         strategy: currentStrategyLabel,
         type: signal.type,
-        price: signal.lastDigit || "0", // Plain last digit
+        price: signal.lastDigit || "0",
         runs: signal.runs || 1,
         template,
         time: format(new Date(signal.timestamp), 'HH:mm:ss'),
@@ -207,7 +200,6 @@ export default function SignalPulseDashboard() {
 
   const handleSync = async () => {
     if (!navigator.onLine || isSyncing) return;
-    
     const currentSignals = SignalManager.getSignals();
     const unsynced = currentSignals.filter(s => !s.synced);
     if (unsynced.length === 0) return;
@@ -215,7 +207,6 @@ export default function SignalPulseDashboard() {
     setIsSyncing(true);
     try {
       for (const signal of unsynced) {
-        // Re-dispatch logic for buffered signals
         await handleAutoDispatch(signal);
       }
     } finally {
@@ -225,11 +216,7 @@ export default function SignalPulseDashboard() {
 
   const handleTestBot = async () => {
     if (!botToken || !chatId) {
-      toast({
-        variant: "destructive",
-        title: "Configuration Missing",
-        description: "Please enter your Bot Token and Chat ID first.",
-      });
+      toast({ variant: "destructive", title: "Configuration Missing", description: "Please enter your Bot Token and Chat ID first." });
       return;
     }
 
@@ -249,23 +236,12 @@ export default function SignalPulseDashboard() {
       });
 
       if (result.success) {
-        toast({
-          title: "Test Successful",
-          description: "Check your Telegram chat for the confirmation message.",
-        });
+        toast({ title: "Test Successful", description: "Check your Telegram chat for the confirmation message." });
       } else {
-        toast({
-          variant: "destructive",
-          title: "Test Failed",
-          description: result.error || "Could not reach Telegram API.",
-        });
+        toast({ variant: "destructive", title: "Test Failed", description: result.error || "Could not reach Telegram API." });
       }
     } catch (e: any) {
-      toast({
-        variant: "destructive",
-        title: "Server Action Error",
-        description: "The connection to the server was interrupted.",
-      });
+      toast({ variant: "destructive", title: "Server Action Error", description: "The connection to the server was interrupted." });
     } finally {
       setIsTesting(false);
     }
@@ -276,10 +252,7 @@ export default function SignalPulseDashboard() {
     localStorage.setItem('tg_chat_id', chatId);
     localStorage.setItem('tg_template', template);
     setShowSettings(false);
-    toast({
-      title: "Settings Saved",
-      description: "FrostyTraders bot configuration updated.",
-    });
+    toast({ title: "Settings Saved", description: "FrostyTraders bot configuration updated." });
   };
 
   const toggleEngine = () => {
@@ -307,7 +280,6 @@ export default function SignalPulseDashboard() {
     content = content.replace(/{confidence}/g, "98%");
     content = content.replace(/{contact}/g, "@FrostyTradersSupport");
     content = content.replace(/{notes}/g, "High-probability streak detected on 4 consecutive digits.");
-    
     return content.replace(/<[^>]*>?/gm, '');
   }, [template, lastDigit, timeframe]);
 
@@ -324,6 +296,10 @@ export default function SignalPulseDashboard() {
           <p className="text-muted-foreground mt-1 text-sm font-medium">GOD FATHER 24/7 Precision Multi-Market Scanning Engine</p>
         </div>
         <div className="flex items-center gap-2">
+          <Badge variant="outline" className="px-3 py-1 bg-white flex gap-2 items-center shadow-sm text-[10px] font-bold text-primary border-primary/20">
+            <Server className="h-3 w-3" />
+            SERVER ENGINE ACTIVE
+          </Badge>
           <Button variant="outline" size="sm" onClick={() => setShowSettings(!showSettings)} className="gap-2 text-xs font-bold bg-white border-accent/20 shadow-sm">
             <Settings className="h-4 w-4 text-accent" />
             MESSAGE FORMAT
