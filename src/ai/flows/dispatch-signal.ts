@@ -2,7 +2,7 @@
 /**
  * @fileOverview FrostyTraders Signal Dispatcher Flow.
  * 
- * Uses Genkit to format market signals with the custom FROSTYTRADERS template.
+ * Uses Genkit to format market signals with the custom FROSTYTRADERS template exactly as requested.
  */
 
 import { ai } from '@/ai/genkit';
@@ -14,7 +14,7 @@ const DispatchInputSchema = z.object({
   symbol: z.string().describe('The market symbol.'),
   strategy: z.string().describe('The strategy name.'),
   type: z.string().describe('The specific signal (RISE, FALL, OVER 2, etc.).'),
-  price: z.number().describe('The execution price.'),
+  price: z.string().describe('The execution price (as string for precision).'),
   duration: z.string().optional().describe('Signal duration.'),
   runs: z.number().optional().describe('Number of runs.'),
   recovery: z.string().optional().describe('Recovery strategy.'),
@@ -52,12 +52,12 @@ const formatPrompt = ai.definePrompt({
 📝 **Additional Notes:** {{#if notes}}{{{notes}}}{{else}}Follow risk management.{{/if}}
 
 
-🔗 **Create a Deriv Trading Account** (https://deriv.com/signup?sidc=808C8BC1-CA13-4AE4-83EE-0A6513B55687&utm_campaign=dynamicworks&utm_medium=affiliate&utm_source=CU31372)
+🔗 [**Create a Deriv Trading Account**](https://deriv.com/signup?sidc=808C8BC1-CA13-4AE4-83EE-0A6513B55687&utm_campaign=dynamicworks&utm_medium=affiliate&utm_source=CU31372)
 
 Instructions:
 - Follow the structure exactly.
-- Preserve the referral link.
-- Ensure symbols and emojis are placed correctly.`,
+- Use the Markdown link for the referral.
+- Ensure symbols and emojis are placed correctly as shown in the template.`,
 });
 
 const dispatchSignalFlow = ai.defineFlow(

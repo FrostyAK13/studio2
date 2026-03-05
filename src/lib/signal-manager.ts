@@ -5,6 +5,7 @@ export interface Signal {
   strategy: string;
   timestamp: string;
   price: number;
+  rawPrice?: string; // High-precision string from Deriv
   lastDigit?: string;
   synced: boolean;
   runs?: number;
@@ -56,7 +57,8 @@ export const SignalManager = {
     currentPrice: number, 
     lastDigit: string, 
     prevPrice: number | null,
-    strategy: string
+    strategy: string,
+    rawPrice: string
   ): Signal | null => {
     const dVal = parseInt(lastDigit);
     if (isNaN(dVal)) return null;
@@ -72,9 +74,9 @@ export const SignalManager = {
       case 'RISE_FALL':
         if (prevPrice !== null) {
           if (currentPrice > prevPrice) {
-            return SignalManager.saveSignal({ symbol, type: 'RISE', strategy, price: currentPrice, lastDigit });
+            return SignalManager.saveSignal({ symbol, type: 'RISE', strategy, price: currentPrice, rawPrice, lastDigit });
           } else if (currentPrice < prevPrice) {
-            return SignalManager.saveSignal({ symbol, type: 'FALL', strategy, price: currentPrice, lastDigit });
+            return SignalManager.saveSignal({ symbol, type: 'FALL', strategy, price: currentPrice, rawPrice, lastDigit });
           }
         }
         break;
@@ -88,6 +90,7 @@ export const SignalManager = {
             type: isEven ? 'EVEN' : 'ODD', 
             strategy, 
             price: currentPrice, 
+            rawPrice,
             lastDigit 
           });
         }
@@ -110,6 +113,7 @@ export const SignalManager = {
               type: 'OVER 2', 
               strategy, 
               price: currentPrice, 
+              rawPrice,
               lastDigit,
               runs: 1 
             });
@@ -119,6 +123,7 @@ export const SignalManager = {
               type: 'UNDER 7', 
               strategy, 
               price: currentPrice, 
+              rawPrice,
               lastDigit,
               runs: 1
             });
@@ -129,10 +134,10 @@ export const SignalManager = {
       case 'MATCHES_DIFFERS':
         // Target is 0
         if (dVal === 0) {
-          return SignalManager.saveSignal({ symbol, type: 'MATCH 0', strategy, price: currentPrice, lastDigit });
+          return SignalManager.saveSignal({ symbol, type: 'MATCH 0', strategy, price: currentPrice, rawPrice, lastDigit });
         } else if (history.length >= 4 && history.slice(-4).every(d => d !== 0)) {
            // Differ signal after 4 non-zero ticks
-          return SignalManager.saveSignal({ symbol, type: 'DIFFERS 0', strategy, price: currentPrice, lastDigit });
+          return SignalManager.saveSignal({ symbol, type: 'DIFFERS 0', strategy, price: currentPrice, rawPrice, lastDigit });
         }
         break;
     }

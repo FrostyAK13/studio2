@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { fetchHistoricalData, StockDataPoint } from '@/lib/stock-service';
 import { SignalManager, Signal } from '@/lib/signal-manager';
 import { derivWs, Tick } from '@/lib/deriv-websocket';
@@ -120,7 +119,8 @@ export default function SignalPulseDashboard() {
         tick.quote, 
         currentLastDigit, 
         prevPriceRef.current, 
-        strategy
+        strategy,
+        tick.rawQuote // Pass raw quote for display precision in Telegram
       );
 
       if (newSignal) {
@@ -146,7 +146,7 @@ export default function SignalPulseDashboard() {
       symbol: currentSymbolLabel,
       strategy: currentStrategyLabel,
       type: signal.type,
-      price: signal.price,
+      price: signal.rawPrice || signal.price.toString(),
       runs: signal.runs,
       duration,
       recovery,
@@ -521,7 +521,7 @@ export default function SignalPulseDashboard() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-mono font-bold text-sm tracking-tighter">{signal.price.toFixed(5)}</div>
+                      <div className="font-mono font-bold text-sm tracking-tighter">{signal.rawPrice || signal.price.toFixed(5)}</div>
                       <div className={cn("text-[9px] font-bold uppercase tracking-widest flex items-center justify-end gap-1", signal.synced ? "text-emerald-600" : "text-amber-600")}>
                         {signal.synced ? <Zap className="h-3 w-3" /> : <RefreshCw className="h-3 w-3 animate-spin" />}
                         {signal.synced ? 'Dispatched' : 'Queued'}
