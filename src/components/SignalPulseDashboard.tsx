@@ -37,7 +37,7 @@ const STRATEGIES = [
   { value: 'OVER_UNDER_ADV', label: 'Over / Under (4/5)', icon: Target },
   { value: 'RISE_FALL', label: 'Rise / Fall (Analysis)', icon: ArrowUpDown },
   { value: 'EVEN_ODD', label: 'Even / Odd (Analysis)', icon: Hash },
-  { value: 'MATCHES', label: 'Matches Only (0)', icon: Zap },
+  { value: 'MATCHES', label: 'Matches (Dynamic Cluster)', icon: Zap },
 ];
 
 const TIMEFRAMES = [
@@ -298,16 +298,16 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
   const previewContent = useMemo(() => {
     let content = template;
     content = content.replace(/{market}/g, "Volatility 100 Index");
-    content = content.replace(/{strategy}/g, "Over / Under (2/7)");
-    content = content.replace(/{signal}/g, "OVER 2");
-    content = content.replace(/{entry}/g, lastDigit || "5");
+    content = content.replace(/{strategy}/g, "Matches (Dynamic Cluster)");
+    content = content.replace(/{signal}/g, "MATCH 7");
+    content = content.replace(/{entry}/g, lastDigit || "7");
     content = content.replace(/{time}/g, format(new Date(), 'HH:mm:ss'));
     content = content.replace(/{timeframe}/g, timeframe);
     content = content.replace(/{runs}/g, "1");
     content = content.replace(/{recovery}/g, "Martingale");
     content = content.replace(/{confidence}/g, "98%");
     content = content.replace(/{contact}/g, "@FrostyTradersSupport");
-    content = content.replace(/{notes}/g, "Precision Alert: Detected a sequence of 4 consecutive digits [5, 6, 8, 9] all exceeding threshold 2. High-probability trend confirmed.");
+    content = content.replace(/{notes}/g, "Frequency Cluster Analysis (MATCH 7): Detected a 'Gravity Cluster' where the digit 7 appeared 4 times in the last 10 ticks. High statistical alignment confirmed.");
     return content.replace(/<[^>]*>?/gm, '');
   }, [template, lastDigit, timeframe]);
 
@@ -478,7 +478,7 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {TIMEFRAMES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                    {TIMEFRAMES.map(t => <SelectItem key={t.value} value={t.label}>{t.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -531,9 +531,9 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
                     <div className="flex items-center gap-4">
                       <div className={cn(
                         "p-3 rounded-xl shadow-sm",
-                        signal.type.includes('OVER') || signal.type.includes('RISE') || signal.type.includes('EVEN') ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+                        signal.type.includes('OVER') || signal.type.includes('RISE') || signal.type.includes('EVEN') || signal.type.includes('MATCH') ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
                       )}>
-                        {signal.type.includes('OVER') || signal.type.includes('RISE') ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+                        {signal.type.includes('OVER') || signal.type.includes('RISE') || signal.type.includes('MATCH') ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
                       </div>
                       <div className="flex-1">
                         <div className="font-black text-sm flex items-center gap-2 text-primary">

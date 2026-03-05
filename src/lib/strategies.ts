@@ -3,10 +3,10 @@
  * This logic is used by both the Client Engine and the Server-side Cron Engine.
  */
 
-export type SignalType = 'RISE' | 'FALL' | 'EVEN' | 'ODD' | 'OVER 2' | 'UNDER 7' | 'OVER 4' | 'UNDER 5' | 'MATCH 0' | 'DIFFERS 0';
+export type SignalType = 'RISE' | 'FALL' | 'EVEN' | 'ODD' | 'OVER 2' | 'UNDER 7' | 'OVER 4' | 'UNDER 5' | string;
 
 export interface StrategyResult {
-  type: SignalType;
+  type: string;
   rationale: string;
   lastDigit: string;
 }
@@ -116,20 +116,37 @@ export const SignalStrategies = {
   },
 
   /**
-   * Matches Only: Looking for patterns of zero.
-   * "Matches 0" triggers if 0 appears frequently in the sequence.
+   * Best Matches Strategy: Frequency Cluster Analysis for digits 0-9.
+   * Scans for a "Gravity Cluster" where any digit appears 3+ times in a window of 10.
    */
   evaluateMatches: (digits: number[]): StrategyResult | null => {
-    if (digits.length < 4) return null;
-    const last4 = digits.slice(-4);
-    const lastDigit = last4[3].toString();
-    const zeroCount = last4.filter(d => d === 0).length;
+    if (digits.length < 10) return null;
+    const last10 = digits.slice(-10);
+    const lastDigit = last10[9].toString();
 
-    if (zeroCount >= 3) {
+    // Frequency map for all digits 0-9
+    const counts: Record<number, number> = {};
+    for (const d of last10) {
+      counts[d] = (counts[d] || 0) + 1;
+    }
+
+    // Find the digit with the highest frequency
+    let bestDigit = -1;
+    let maxCount = 0;
+
+    for (let i = 0; i <= 9; i++) {
+      if ((counts[i] || 0) > maxCount) {
+        maxCount = counts[i];
+        bestDigit = i;
+      }
+    }
+
+    // Trigger if a digit has appeared at least 3 times (Standard Gravity Threshold)
+    if (bestDigit !== -1 && maxCount >= 3) {
       return {
-        type: 'MATCH 0',
+        type: `MATCH ${bestDigit}`,
         lastDigit,
-        rationale: `Zero Alignment Analysis (MATCH 0): Critical cluster of Zeros detected in the recent window [${last4.join(', ')}]. High-fidelity pattern suggests a localized "Matches 0" opportunity.`
+        rationale: `Frequency Cluster Analysis (MATCH ${bestDigit}): Detected a "Gravity Cluster" where the digit ${bestDigit} appeared ${maxCount} times in the last 10 ticks. High statistical alignment for a Matches ${bestDigit} contract.`
       };
     }
     return null;
