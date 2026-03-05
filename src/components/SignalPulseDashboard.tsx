@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -25,9 +26,12 @@ const VOLATILITY_INDICES = [
   { value: 'R_75', label: 'Volatility 75 Index' },
   { value: 'R_100', label: 'Volatility 100 Index' },
   { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
+  { value: '1HZ15V', label: 'Volatility 15 (1s) Index' },
   { value: '1HZ25V', label: 'Volatility 25 (1s) Index' },
+  { value: '1HZ30V', label: 'Volatility 30 (1s) Index' },
   { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
   { value: '1HZ75V', label: 'Volatility 75 (1s) Index' },
+  { value: '1HZ90V', label: 'Volatility 90 (1s) Index' },
   { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
 ];
 
@@ -262,7 +266,7 @@ export default function SignalPulseDashboard() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectLabel>High Speed (1s) Indices</SelectLabel>
+                      <SelectLabel>Volatility Indices</SelectLabel>
                       {VOLATILITY_INDICES.map((index) => (
                         <SelectItem key={index.value} value={index.value}>
                           {index.label}
