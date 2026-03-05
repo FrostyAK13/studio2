@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { format, addMinutes, subSeconds } from 'date-fns';
+import { format, addMinutes } from 'date-fns';
 import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings, Play, Square, Database, Server } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -34,8 +34,10 @@ const VOLATILITY_INDICES = [
 
 const STRATEGIES = [
   { value: 'OVER_UNDER', label: 'Over / Under (2/7)', icon: Target },
-  { value: 'RISE_FALL', label: 'Rise / Fall', icon: ArrowUpDown },
-  { value: 'EVEN_ODD', label: 'Even / Odd', icon: Hash },
+  { value: 'OVER_UNDER_ADV', label: 'Over / Under (4/5)', icon: Target },
+  { value: 'RISE_FALL', label: 'Rise / Fall (Analysis)', icon: ArrowUpDown },
+  { value: 'EVEN_ODD', label: 'Even / Odd (Analysis)', icon: Hash },
+  { value: 'MATCHES', label: 'Matches Only (0)', icon: Zap },
 ];
 
 const TIMEFRAMES = [
@@ -260,7 +262,6 @@ export default function SignalPulseDashboard() {
     
     if (newState && botToken && chatId) {
       // Send Pulse Confirmation to Channel
-      const nextTime = format(addMinutes(new Date(), 1), 'HH:mm'); // Mock next sync time
       await dispatchSignalToTelegram({
         botToken: botToken.trim(),
         chatId: chatId.trim(),
@@ -477,7 +478,7 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {TIMEFRAMES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                    {TIMEFRAMES.map(t => <SelectItem key={t.value} value={t.label}>{t.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

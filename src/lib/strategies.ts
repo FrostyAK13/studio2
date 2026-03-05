@@ -3,7 +3,7 @@
  * This logic is used by both the Client Engine and the Server-side Cron Engine.
  */
 
-export type SignalType = 'RISE' | 'FALL' | 'EVEN' | 'ODD' | 'OVER 2' | 'UNDER 7' | 'MATCH 0' | 'DIFFERS 0';
+export type SignalType = 'RISE' | 'FALL' | 'EVEN' | 'ODD' | 'OVER 2' | 'UNDER 7' | 'OVER 4' | 'UNDER 5' | 'MATCH 0' | 'DIFFERS 0';
 
 export interface StrategyResult {
   type: SignalType;
@@ -14,7 +14,6 @@ export interface StrategyResult {
 export const SignalStrategies = {
   /**
    * Over / Under Strategy: Requires a 4-digit confirmation streak.
-   * Enhanced rationale provides deeper technical context.
    */
   evaluateOverUnder: (digits: number[]): StrategyResult | null => {
     if (digits.length < 4) return null;
@@ -25,14 +24,39 @@ export const SignalStrategies = {
       return {
         type: 'OVER 2',
         lastDigit,
-        rationale: `Precision Alert: Detected a sequence of 4 consecutive digits [${last4.join(', ')}] all exceeding the threshold of 2. This statistical anomaly indicates a strong localized 'Over' trend on the high-volatility stream.`
+        rationale: `Over 2 Precision Alert: Detected a sequence of 4 consecutive digits [${last4.join(', ')}] all exceeding threshold 2. High-probability trend confirmed.`
       };
     }
     if (last4.every(d => d < 7)) {
       return {
         type: 'UNDER 7',
         lastDigit,
-        rationale: `Precision Alert: Detected a sequence of 4 consecutive digits [${last4.join(', ')}] all remaining below the threshold of 7. This mathematical cluster confirms a high-probability 'Under' bias in the current tick stream.`
+        rationale: `Under 7 Precision Alert: Detected a sequence of 4 consecutive digits [${last4.join(', ')}] below threshold 7. Mathematical cluster confirms bias.`
+      };
+    }
+    return null;
+  },
+
+  /**
+   * Advanced Over / Under Strategy: Threshold 4 and 5.
+   */
+  evaluateOverUnderAdvanced: (digits: number[]): StrategyResult | null => {
+    if (digits.length < 4) return null;
+    const last4 = digits.slice(-4);
+    const lastDigit = last4[3].toString();
+
+    if (last4.every(d => d > 4)) {
+      return {
+        type: 'OVER 4',
+        lastDigit,
+        rationale: `Upper Threshold Analysis: 4 consecutive digits [${last4.join(', ')}] above 4 detected. Bullish pressure confirmed on high-tier digits.`
+      };
+    }
+    if (last4.every(d => d < 5)) {
+      return {
+        type: 'UNDER 5',
+        lastDigit,
+        rationale: `Lower Threshold Analysis: 4 consecutive digits [${last4.join(', ')}] below 5 detected. Bearish containment confirmed on low-tier digits.`
       };
     }
     return null;
@@ -53,14 +77,14 @@ export const SignalStrategies = {
       return {
         type: 'RISE',
         lastDigit,
-        rationale: `Momentum Breakout: 5 consecutive higher ticks detected. Trend line analysis shows consistent bullish pressure with zero retracement in the immediate tick window.`
+        rationale: `Momentum Trend Analysis: 5 consecutive ticks in one direction. Zero-retracement trend-line confirmed in the immediate tick window.`
       };
     }
     if (isFalling) {
       return {
         type: 'FALL',
         lastDigit,
-        rationale: `Momentum Breakout: 5 consecutive lower ticks detected. Trend line analysis confirms aggressive bearish liquidation with zero upward correction in the immediate tick window.`
+        rationale: `Momentum Trend Analysis: 5 consecutive ticks downward. Zero-retracement bearish trend confirmed in the immediate tick window.`
       };
     }
     return null;
@@ -78,14 +102,33 @@ export const SignalStrategies = {
       return {
         type: 'EVEN',
         lastDigit,
-        rationale: `Parity Sequence: Mathematical streak of 4 consecutive EVEN digits [${last4.join(', ')}]. High-fidelity parity sync detected.`
+        rationale: `Parity Sequence Analysis: Detected 4 consecutive EVEN digits [${last4.join(', ')}]. Mathematical equilibrium shift detected.`
       };
     }
     if (last4.every(d => d % 2 !== 0)) {
       return {
         type: 'ODD',
         lastDigit,
-        rationale: `Parity Sequence: Mathematical streak of 4 consecutive ODD digits [${last4.join(', ')}]. High-fidelity parity sync detected.`
+        rationale: `Parity Sequence Analysis: Detected 4 consecutive ODD digits [${last4.join(', ')}]. Mathematical equilibrium shift detected.`
+      };
+    }
+    return null;
+  },
+
+  /**
+   * Matches Only: Looking for patterns of zero.
+   */
+  evaluateMatches: (digits: number[]): StrategyResult | null => {
+    if (digits.length < 4) return null;
+    const last4 = digits.slice(-4);
+    const lastDigit = last4[3].toString();
+    const zeroCount = last4.filter(d => d === 0).length;
+
+    if (zeroCount >= 3) {
+      return {
+        type: 'MATCH 0',
+        lastDigit,
+        rationale: `Zero Alignment Analysis: High-fidelity pattern of zeros [${last4.join(', ')}] observed in the last 4 ticks. Statistical match probability at maximum.`
       };
     }
     return null;

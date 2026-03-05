@@ -63,8 +63,7 @@ export const SignalManager = {
     const currentMinute = now.getMinutes();
     const currentSeconds = now.getSeconds();
 
-    // Check if we are at a standard interval (e.g., minute 5, 10, 15...)
-    // We allow a small 15-second window to catch the signal at the start of the interval
+    // Check if we are at a standard interval
     if (currentMinute % intervalMinutes === 0 && currentSeconds < 15) {
       const bucketId = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}-${currentMinute}`;
       const lastBucket = localStorage.getItem(LAST_BUCKET_KEY);
@@ -116,11 +115,17 @@ export const SignalManager = {
       case 'OVER_UNDER':
         strategyResult = SignalStrategies.evaluateOverUnder(digitHistory[symbol]);
         break;
+      case 'OVER_UNDER_ADV':
+        strategyResult = SignalStrategies.evaluateOverUnderAdvanced(digitHistory[symbol]);
+        break;
       case 'RISE_FALL':
         strategyResult = SignalStrategies.evaluateRiseFall(tickHistory[symbol], digitHistory[symbol]);
         break;
       case 'EVEN_ODD':
         strategyResult = SignalStrategies.evaluateEvenOdd(digitHistory[symbol]);
+        break;
+      case 'MATCHES':
+        strategyResult = SignalStrategies.evaluateMatches(digitHistory[symbol]);
         break;
     }
 
