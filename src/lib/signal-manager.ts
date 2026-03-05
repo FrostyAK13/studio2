@@ -16,11 +16,16 @@ export interface Signal {
 const STORAGE_KEY = 'signalpulse_signals';
 const LAST_SIGNAL_TIMES = 'signalpulse_last_times';
 
-// Persistent history for pattern detection
+// Persistent history for pattern detection per symbol
 const digitHistory: Record<string, number[]> = {};
 
 export const SignalManager = {
   saveSignal: (signal: Omit<Signal, 'id' | 'timestamp' | 'synced'>): Signal => {
+    if (typeof window === 'undefined') {
+       // Mock for non-browser environments if needed
+       return { ...signal, id: 'mock', timestamp: new Date().toISOString(), synced: false };
+    }
+    
     const signals = SignalManager.getSignals();
     
     // Check if we already have a very recent signal for this symbol and type to avoid spamming
@@ -52,6 +57,7 @@ export const SignalManager = {
   },
 
   markAsSynced: (signalId: string): void => {
+    if (typeof window === 'undefined') return;
     const signals = SignalManager.getSignals();
     const updated = signals.map(s => s.id === signalId ? { ...s, synced: true } : s);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
@@ -59,7 +65,7 @@ export const SignalManager = {
 
   /**
    * Checks if enough time has passed based on the selected interval.
-   * This ensures 24/7 consistency across browser refreshes.
+   * This ensures 24/7 consistency across browser refreshes and handles multiple symbols.
    */
   shouldProcessSignal: (symbol: string, strategy: string, intervalMinutes: number): boolean => {
     if (typeof window === 'undefined') return false;
@@ -99,14 +105,14 @@ export const SignalManager = {
       intervalMinutes = parseInt(intervalStr) || 5;
     }
 
-    // Track digit history for pattern-based strategies
+    // Track digit history for pattern-based strategies per symbol
     if (!digitHistory[symbol]) digitHistory[symbol] = [];
     digitHistory[symbol].push(dVal);
     if (digitHistory[symbol].length > 10) digitHistory[symbol].shift();
 
     const history = digitHistory[symbol];
     
-    // Check if we should even look for a signal based on the timeframe
+    // Check if we should even look for a signal based on the timeframe for THIS specific symbol
     if (!SignalManager.shouldProcessSignal(symbol, strategy, intervalMinutes)) {
       return null;
     }

@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { format } from 'date-fns';
-import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings, AlertCircle, Play, Square, Database } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings, AlertCircle, Play, Square, Database, Globe } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { dispatchSignalToTelegram } from '@/ai/flows/dispatch-signal';
 
 const VOLATILITY_INDICES = [
+  { value: 'ALL_MARKETS', label: 'All Volatility Indices (Scanner)' },
   { value: 'R_10', label: 'Volatility 10 Index' },
   { value: 'R_15', label: 'Volatility 15 (1s) Index' },
   { value: 'R_25', label: 'Volatility 25 Index' },
@@ -72,7 +73,7 @@ const DEFAULT_TEMPLATE = `🚨 <b>FROSTYTRADERS – DERIV SIGNAL</b>
 🔗 <a href="https://deriv.com/signup?sidc=808C8BC1-CA13-4AE4-83EE-0A6513B55687&utm_campaign=dynamicworks&utm_medium=affiliate&utm_source=CU31372"><b>Create a Deriv Trading Account</b></a>`;
 
 export default function SignalPulseDashboard() {
-  const [symbol, setSymbol] = useState('R_100');
+  const [symbol, setSymbol] = useState('ALL_MARKETS');
   const [strategy, setStrategy] = useState('RISE_FALL');
   const [timeframe, setTimeframe] = useState('5m');
   const [isEngineActive, setIsEngineActive] = useState(false);
@@ -89,7 +90,7 @@ export default function SignalPulseDashboard() {
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
   const [showSettings, setShowSettings] = useState(false);
 
-  const prevPriceRef = useRef<number | null>(null);
+  const prevPricesRef = useRef<Record<string, number | null>>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -134,29 +135,42 @@ export default function SignalPulseDashboard() {
       return;
     }
 
-    const unsubscribe = derivWs.subscribe(symbol, (tick) => {
-      setLiveTick(tick);
-      
-      const currentLastDigit = tick.rawQuote.substring(tick.rawQuote.length - 1);
-      const newSignal = SignalManager.processSignalsFromData(
-        symbol, 
-        tick.quote, 
-        currentLastDigit, 
-        prevPriceRef.current, 
-        strategy,
-        tick.rawQuote,
-        timeframe
-      );
+    const targets = symbol === 'ALL_MARKETS' 
+      ? VOLATILITY_INDICES.filter(i => i.value !== 'ALL_MARKETS').map(i => i.value)
+      : [symbol];
 
-      if (newSignal) {
-        setSignals(SignalManager.getSignals());
-        handleAutoDispatch(newSignal);
-      }
+    const unsubscribers: (() => void)[] = [];
 
-      prevPriceRef.current = tick.quote;
+    targets.forEach(s => {
+      const unsubscribe = derivWs.subscribe(s, (tick) => {
+        // Update live tick display (for ALL_MARKETS we just show the most recent incoming tick)
+        setLiveTick(tick);
+        
+        const currentLastDigit = tick.rawQuote.substring(tick.rawQuote.length - 1);
+        
+        const newSignal = SignalManager.processSignalsFromData(
+          s, 
+          tick.quote, 
+          currentLastDigit, 
+          prevPricesRef.current[s] || null, 
+          strategy,
+          tick.rawQuote,
+          timeframe
+        );
+
+        if (newSignal) {
+          setSignals(SignalManager.getSignals());
+          handleAutoDispatch(newSignal);
+        }
+
+        prevPricesRef.current[s] = tick.quote;
+      });
+      unsubscribers.push(unsubscribe);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribers.forEach(u => u());
+    };
   }, [symbol, strategy, timeframe, mounted, isEngineActive]);
 
   const handleAutoDispatch = async (signal: Signal) => {
@@ -273,7 +287,7 @@ export default function SignalPulseDashboard() {
     toast({
       title: !isEngineActive ? "Engine Started" : "Engine Stopped",
       description: !isEngineActive 
-        ? "GOD FATHER analysis is now active 24/7." 
+        ? (symbol === 'ALL_MARKETS' ? "GOD FATHER scanning all markets 24/7." : "GOD FATHER analysis active for selected market.")
         : "Automated polling has been paused.",
     });
   };
@@ -509,7 +523,7 @@ export default function SignalPulseDashboard() {
           <CardHeader className="flex flex-row items-center justify-between pb-4 border-b">
             <div>
               <CardTitle className="text-xl font-bold flex items-center gap-2">
-                {VOLATILITY_INDICES.find(i => i.value === symbol)?.label}
+                {symbol === 'ALL_MARKETS' ? 'Multi-Market Pulse Scanner' : VOLATILITY_INDICES.find(i => i.value === symbol)?.label}
                 <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700">T{timeframe}</Badge>
               </CardTitle>
               <CardDescription className="text-xs uppercase font-bold text-muted-foreground/60 tracking-widest">
@@ -529,8 +543,12 @@ export default function SignalPulseDashboard() {
                 <div className="h-full flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-2xl bg-slate-50 gap-2">
                   <Activity className="h-12 w-12 text-accent opacity-20 animate-pulse" />
                   <div className="text-center">
-                    <p className="text-[12px] font-black uppercase tracking-widest text-primary">Engine Running</p>
-                    <p className="text-[10px] font-medium opacity-60">Processing Live Ticks 24/7</p>
+                    <p className="text-[12px] font-black uppercase tracking-widest text-primary">
+                      {symbol === 'ALL_MARKETS' ? 'Multi-Market Scanning Engine Active' : 'Engine Running'}
+                    </p>
+                    <p className="text-[10px] font-medium opacity-60">
+                      {symbol === 'ALL_MARKETS' ? `Scanning all Volatility Indices every ${timeframe}` : 'Processing Live Ticks 24/7'}
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -571,7 +589,7 @@ export default function SignalPulseDashboard() {
                       </div>
                       <div>
                         <div className="font-bold flex items-center gap-2 text-sm">
-                          {signal.type}
+                          {signal.type} @ {VOLATILITY_INDICES.find(v => v.value === signal.symbol)?.label || signal.symbol}
                           <Badge className="text-[8px] h-4 bg-primary/10 text-primary border-none uppercase">T{signal.interval || 'OFF'}</Badge>
                         </div>
                         <div className="text-[10px] text-muted-foreground font-medium">{format(new Date(signal.timestamp), 'HH:mm:ss')} | Digit: {signal.lastDigit}</div>
