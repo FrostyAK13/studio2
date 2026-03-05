@@ -120,7 +120,7 @@ export default function SignalPulseDashboard() {
         currentLastDigit, 
         prevPriceRef.current, 
         strategy,
-        tick.rawQuote // Pass raw quote for display precision in Telegram
+        tick.rawQuote
       );
 
       if (newSignal) {
@@ -228,7 +228,7 @@ export default function SignalPulseDashboard() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen p-4 md:p-8 space-y-6 bg-background max-w-7xl mx-auto font-body">
+    <div className="min-h-screen p-4 md:p-8 space-y-6 bg-[#f8f9fc] max-w-7xl mx-auto font-body">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-2">
@@ -250,65 +250,67 @@ export default function SignalPulseDashboard() {
       </header>
 
       {showSettings && (
-        <Card className="border-accent/20 bg-accent/5 overflow-hidden shadow-lg animate-in slide-in-from-top-4">
-          <Tabs defaultValue="bot" className="w-full">
-            <CardHeader className="pb-2 bg-white/50 border-b border-accent/10">
-              <TabsList className="bg-muted/50">
-                <TabsTrigger value="bot" className="text-xs font-bold uppercase tracking-tight">Bot Config</TabsTrigger>
-                <TabsTrigger value="template" className="text-xs font-bold uppercase tracking-tight">Template Details</TabsTrigger>
+        <Card className="border-accent/10 bg-[#f0f2f9] overflow-hidden shadow-xl animate-in fade-in slide-in-from-top-4 duration-300">
+          <Tabs defaultValue="template" className="w-full">
+            <div className="flex justify-center p-4">
+              <TabsList className="bg-white/50 p-1 rounded-full shadow-inner">
+                <TabsTrigger value="bot" className="text-[10px] font-bold uppercase tracking-tight rounded-full px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Bot Config</TabsTrigger>
+                <TabsTrigger value="template" className="text-[10px] font-bold uppercase tracking-tight rounded-full px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Template Details</TabsTrigger>
               </TabsList>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <TabsContent value="bot" className="mt-0 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                    <Zap className="h-3 w-3" /> Bot API Token
-                  </label>
-                  <Input 
-                    type="password" 
-                    placeholder="Token" 
-                    value={botToken} 
-                    onChange={(e) => setBotToken(e.target.value)}
-                    className="bg-white h-9 text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                    <Target className="h-3 w-3" /> Destination Chat ID
-                  </label>
-                  <Input 
-                    placeholder="Chat ID" 
-                    value={chatId} 
-                    onChange={(e) => setChatId(e.target.value)}
-                    className="bg-white h-9 text-xs"
-                  />
+            </div>
+            <CardContent className="pt-2 px-6 pb-6">
+              <TabsContent value="bot" className="mt-0 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">Bot API Token</label>
+                    <Input 
+                      type="password" 
+                      placeholder="Enter Telegram Bot Token" 
+                      value={botToken} 
+                      onChange={(e) => setBotToken(e.target.value)}
+                      className="bg-white h-11 text-sm border-none shadow-sm focus-visible:ring-accent"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">Destination Chat ID</label>
+                    <Input 
+                      placeholder="Enter Telegram Chat ID" 
+                      value={chatId} 
+                      onChange={(e) => setChatId(e.target.value)}
+                      className="bg-white h-11 text-sm border-none shadow-sm focus-visible:ring-accent"
+                    />
+                  </div>
                 </div>
               </TabsContent>
-              <TabsContent value="template" className="mt-0 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Duration</label>
-                  <Input value={duration} onChange={(e) => setDuration(e.target.value)} className="bg-white h-9 text-xs" />
+              <TabsContent value="template" className="mt-0 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">Duration</label>
+                    <Input value={duration} onChange={(e) => setDuration(e.target.value)} className="bg-white h-11 text-sm border-none shadow-sm focus-visible:ring-accent" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">Recovery</label>
+                    <Input value={recovery} onChange={(e) => setRecovery(e.target.value)} className="bg-white h-11 text-sm border-none shadow-sm focus-visible:ring-accent" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">Confidence</label>
+                    <Input value={confidence} onChange={(e) => setConfidence(e.target.value)} className="bg-white h-11 text-sm border-none shadow-sm focus-visible:ring-accent" />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Recovery</label>
-                  <Input value={recovery} onChange={(e) => setRecovery(e.target.value)} className="bg-white h-9 text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Confidence</label>
-                  <Input value={confidence} onChange={(e) => setConfidence(e.target.value)} className="bg-white h-9 text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Support Contact</label>
-                  <Input value={contact} onChange={(e) => setContact(e.target.value)} className="bg-white h-9 text-xs" />
-                </div>
-                <div className="md:col-span-2 space-y-1">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase">Additional Notes</label>
-                  <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="bg-white h-9 text-xs" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">Support Contact</label>
+                    <Input value={contact} onChange={(e) => setContact(e.target.value)} className="bg-white h-11 text-sm border-none shadow-sm focus-visible:ring-accent" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider ml-1">Additional Notes</label>
+                    <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="bg-white h-11 text-sm border-none shadow-sm focus-visible:ring-accent" />
+                  </div>
                 </div>
               </TabsContent>
-              <div className="flex justify-end mt-6 gap-3 pt-4 border-t border-accent/10">
-                <Button variant="ghost" size="sm" onClick={() => setShowSettings(false)} className="text-xs font-bold uppercase">Cancel</Button>
-                <Button onClick={handleSaveSettings} className="bg-accent hover:bg-accent/90 h-9 px-8 text-xs font-bold uppercase shadow-accent/20 shadow-lg">Save Settings</Button>
+              <div className="flex justify-end mt-8 gap-4 pt-4">
+                <Button variant="ghost" size="sm" onClick={() => setShowSettings(false)} className="text-[10px] font-bold uppercase tracking-widest hover:bg-white/50">Cancel</Button>
+                <Button onClick={handleSaveSettings} className="bg-accent hover:bg-accent/90 h-11 px-10 text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-accent/20 rounded-lg">Save Settings</Button>
               </div>
             </CardContent>
           </Tabs>

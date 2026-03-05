@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview FrostyTraders Signal Dispatcher Flow.
+ * @fileOverview FROSTYTRADERS Signal Dispatcher Flow.
  * 
  * Uses Genkit to format market signals with the custom FROSTYTRADERS template exactly as requested.
  */
@@ -14,7 +14,7 @@ const DispatchInputSchema = z.object({
   symbol: z.string().describe('The market symbol.'),
   strategy: z.string().describe('The strategy name.'),
   type: z.string().describe('The specific signal (RISE, FALL, OVER 2, etc.).'),
-  price: z.string().describe('The execution price (as string for precision).'),
+  price: z.string().describe('The execution price.'),
   duration: z.string().optional().describe('Signal duration.'),
   runs: z.number().optional().describe('Number of runs.'),
   recovery: z.string().optional().describe('Recovery strategy.'),
@@ -56,8 +56,8 @@ const formatPrompt = ai.definePrompt({
 
 Instructions:
 - Follow the structure exactly.
-- Use the Markdown link for the referral.
-- Ensure symbols and emojis are placed correctly as shown in the template.`,
+- Ensure the Markdown link for the referral is active.
+- Use the provided field values.`,
 });
 
 const dispatchSignalFlow = ai.defineFlow(
