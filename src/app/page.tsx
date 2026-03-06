@@ -1,4 +1,4 @@
-import EmporerDashboard from '@/components/SignalPulseDashboard';
+import EmporerDashboard from '@/components/EmporerDashboard';
 import { Toaster } from '@/components/ui/toaster';
 
 export default function Home() {
