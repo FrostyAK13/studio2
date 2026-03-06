@@ -33,11 +33,11 @@ const VOLATILITY_INDICES = [
 ];
 
 const STRATEGIES = [
-  { value: 'OVER_UNDER', label: 'Over / Under (2/7)', icon: Target },
-  { value: 'OVER_UNDER_ADV', label: 'Over / Under (4/5)', icon: Target },
-  { value: 'RISE_FALL', label: 'Rise / Fall (Analysis)', icon: ArrowUpDown },
-  { value: 'EVEN_ODD', label: 'Even / Odd (Analysis)', icon: Hash },
-  { value: 'MATCHES', label: 'Matches (Dynamic Cluster)', icon: Zap },
+  { value: 'OVER_UNDER', label: 'Over / Under (Extreme)', icon: Target },
+  { value: 'OVER_UNDER_ADV', label: 'Over / Under (Advanced)', icon: Target },
+  { value: 'RISE_FALL', label: 'Rise / Fall (Momentum)', icon: ArrowUpDown },
+  { value: 'EVEN_ODD', label: 'Even / Odd (Parity)', icon: Hash },
+  { value: 'MATCHES', label: 'Matches (Gravity Cluster)', icon: Zap },
 ];
 
 const TIMEFRAMES = [
@@ -55,9 +55,10 @@ const DEFAULT_TEMPLATE = `🚨 <b>FROSTYTRADERS – EMPORER SIGNAL</b>
 🤖 <b>Bot / Strategy:</b> {strategy}
 🎯 <b>Signal :</b> {signal}
 📲 <b>Entry Point:</b> {entry}
-⏱ <b>Signal Duration:</b> {time}
+⏱ <b>Signal Time:</b> {time}
 🔁 <b>Number of Runs:</b> {runs}
 🔄 <b>Recovery:</b> Martingale
+💰 <b>Range:</b> 2.5 - 5 USD
 💪 <b>Confidence Level:</b> 98%
 
 🚫 <b>Contact:</b> @FrostyTradersSupport
@@ -296,12 +297,12 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
   const previewContent = useMemo(() => {
     let content = template;
     content = content.replace(/{market}/g, "Volatility 100 Index");
-    content = content.replace(/{strategy}/g, "Matches (Dynamic Cluster)");
+    content = content.replace(/{strategy}/g, "Matches (Gravity Cluster)");
     content = content.replace(/{signal}/g, "MATCH 7");
     content = content.replace(/{entry}/g, lastDigit || "7");
     content = content.replace(/{time}/g, format(new Date(), 'HH:mm:ss'));
     content = content.replace(/{runs}/g, "1");
-    content = content.replace(/{notes}/g, "Extreme Precision Alert: Detected a sequence of 5 consecutive digits [7, 7, 3, 7, 7]. High statistical alignment confirmed.");
+    content = content.replace(/{notes}/g, "EMPORER Precision Alert: Confirmed a 5-digit sequence [7, 7, 3, 7, 7] above threshold 2. High-probability bullish bias detected.");
     return content.replace(/<[^>]*>?/gm, '');
   }, [template, lastDigit]);
 

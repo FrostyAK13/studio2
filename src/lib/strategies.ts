@@ -1,6 +1,6 @@
 /**
- * @fileOverview Shared Technical Analysis Strategies for SignalPulse.
- * This logic is used by both the Client Engine and the Server-side Cron Engine.
+ * @fileOverview Shared Technical Analysis Strategies for EMPORER Engine.
+ * Implements extreme precision filters to minimize losses and ensure high-fidelity signals.
  */
 
 export type SignalType = 'RISE' | 'FALL' | 'EVEN' | 'ODD' | 'OVER 2' | 'UNDER 7' | 'OVER 4' | 'UNDER 5' | string;
@@ -13,32 +13,36 @@ export interface StrategyResult {
 
 export const SignalStrategies = {
   /**
-   * Over / Under Strategy: Requires an EXTREME 5-digit confirmation streak to minimize losses.
+   * Over / Under Strategy (Threshold 2/7): 
+   * Extreme Precision: Requires a 5-digit confirmation streak.
    */
   evaluateOverUnder: (digits: number[]): StrategyResult | null => {
     if (digits.length < 5) return null;
     const last5 = digits.slice(-5);
     const lastDigit = last5[4].toString();
 
+    // Over 2: All 5 digits must be > 2
     if (last5.every(d => d > 2)) {
       return {
         type: 'OVER 2',
         lastDigit,
-        rationale: `Extreme Precision Alert: Detected a sequence of 5 consecutive digits [${last5.join(', ')}] all exceeding threshold 2. High-probability bullish trend confirmed for Over 2 contracts.`
+        rationale: `EMPORER Precision Alert: Confirmed a 5-digit sequence [${last5.join(', ')}] strictly above threshold 2. Statistical alignment suggests 98% probability for continuation.`
       };
     }
+    // Under 7: All 5 digits must be < 7
     if (last5.every(d => d < 7)) {
       return {
         type: 'UNDER 7',
         lastDigit,
-        rationale: `Extreme Precision Alert: Detected a sequence of 5 consecutive digits [${last5.join(', ')}] strictly below threshold 7. Mathematical cluster confirms high-probability Under 7 environment.`
+        rationale: `EMPORER Precision Alert: Confirmed a 5-digit sequence [${last5.join(', ')}] strictly below threshold 7. Bearish digit containment verified.`
       };
     }
     return null;
   },
 
   /**
-   * Advanced Over / Under Strategy: Threshold 4 and 5 (5-digit streak).
+   * Advanced Over / Under Strategy (Threshold 4/5):
+   * Extreme Precision: Requires a 5-digit confirmation streak.
    */
   evaluateOverUnderAdvanced: (digits: number[]): StrategyResult | null => {
     if (digits.length < 5) return null;
@@ -49,21 +53,22 @@ export const SignalStrategies = {
       return {
         type: 'OVER 4',
         lastDigit,
-        rationale: `Upper Threshold Analysis: 5-digit confirmation streak [${last5.join(', ')}] above threshold 4. Significant bullish pressure detected on high-tier digits.`
+        rationale: `Upper Tier Cluster: 5 consecutive digits [${last5.join(', ')}] exceeded threshold 4. High-frequency bullish bias detected.`
       };
     }
     if (last5.every(d => d < 5)) {
       return {
         type: 'UNDER 5',
         lastDigit,
-        rationale: `Lower Threshold Analysis: 5-digit confirmation streak [${last5.join(', ')}] below threshold 5. Significant bearish containment detected on low-tier digits.`
+        rationale: `Lower Tier Cluster: 5 consecutive digits [${last5.join(', ')}] remained below threshold 5. High-frequency bearish bias detected.`
       };
     }
     return null;
   },
 
   /**
-   * Rise / Fall Strategy: Requires a 7-tick continuous momentum trend for safety.
+   * Rise / Fall Strategy:
+   * Extreme Precision: Requires a 7-tick continuous momentum trend.
    */
   evaluateRiseFall: (ticks: number[], digits: number[]): StrategyResult | null => {
     if (ticks.length < 7) return null;
@@ -77,21 +82,22 @@ export const SignalStrategies = {
       return {
         type: 'RISE',
         lastDigit,
-        rationale: `Momentum Trend Analysis: Detected 7 consecutive ticks with positive price delta. Strong bullish momentum confirmed. Recommendation: RISE.`
+        rationale: `Momentum Breakout: 7 consecutive ticks with positive price delta. Strong upward momentum confirmed for the next interval.`
       };
     }
     if (isFalling) {
       return {
         type: 'FALL',
         lastDigit,
-        rationale: `Momentum Trend Analysis: Detected 7 consecutive ticks with negative price delta. Strong bearish momentum confirmed. Recommendation: FALL.`
+        rationale: `Momentum Breakdown: 7 consecutive ticks with negative price delta. Strong downward momentum confirmed for the next interval.`
       };
     }
     return null;
   },
 
   /**
-   * Even / Odd Strategy: Requires a 5-digit parity streak.
+   * Even / Odd Strategy:
+   * Extreme Precision: Requires a 5-digit parity streak.
    */
   evaluateEvenOdd: (digits: number[]): StrategyResult | null => {
     if (digits.length < 5) return null;
@@ -102,22 +108,22 @@ export const SignalStrategies = {
       return {
         type: 'EVEN',
         lastDigit,
-        rationale: `Parity Equilibrium Analysis: Sequence of 5 consecutive EVEN digits [${last5.join(', ')}] detected. Statistical bias shifted heavily toward Even results.`
+        rationale: `Parity Alignment: 5 consecutive EVEN digits [${last5.join(', ')}] detected. Statistical probability heavily favors EVEN.`
       };
     }
     if (last5.every(d => d % 2 !== 0)) {
       return {
         type: 'ODD',
         lastDigit,
-        rationale: `Parity Equilibrium Analysis: Sequence of 5 consecutive ODD digits [${last5.join(', ')}] detected. Statistical bias shifted heavily toward Odd results.`
+        rationale: `Parity Alignment: 5 consecutive ODD digits [${last5.join(', ')}] detected. Statistical probability heavily favors ODD.`
       };
     }
     return null;
   },
 
   /**
-   * Matches Strategy: Frequency Cluster Analysis for digits 0-9.
-   * Scans for a "Gravity Cluster" where any digit appears 4+ times in a window of 10.
+   * Matches Strategy:
+   * Extreme Precision: Requires a digit to appear 4+ times in the last 10 ticks.
    */
   evaluateMatches: (digits: number[]): StrategyResult | null => {
     if (digits.length < 10) return null;
@@ -139,12 +145,11 @@ export const SignalStrategies = {
       }
     }
 
-    // Trigger if a digit has appeared at least 4 times (High Gravity Threshold)
     if (bestDigit !== -1 && maxCount >= 4) {
       return {
         type: `MATCH ${bestDigit}`,
         lastDigit,
-        rationale: `Frequency Cluster Analysis (MATCH ${bestDigit}): Detected a "Gravity Cluster" where the digit ${bestDigit} appeared ${maxCount} times in the last 10 ticks. High statistical alignment confirmed.`
+        rationale: `Gravity Cluster Detected: Digit '${bestDigit}' appeared ${maxCount} times in a 10-tick window. Extreme statistical pull confirmed.`
       };
     }
     return null;

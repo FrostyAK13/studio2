@@ -15,13 +15,16 @@ export interface Signal {
   rationale?: string;
 }
 
-const STORAGE_KEY = 'signalpulse_signals';
-const LAST_BUCKET_KEY = 'signalpulse_last_bucket';
+const STORAGE_KEY = 'emporer_signals';
+const LAST_BUCKET_KEY = 'emporer_last_bucket';
 
 const digitHistory: Record<string, number[]> = {};
 const tickHistory: Record<string, number[]> = {};
 
 export const SignalManager = {
+  /**
+   * Saves a signal with randomized runs (1-3) and current timestamp.
+   */
   saveSignal: (signal: Omit<Signal, 'id' | 'timestamp' | 'synced' | 'runs'>): Signal => {
     if (typeof window === 'undefined') {
        return { ...signal, id: 'mock', timestamp: new Date().toISOString(), synced: false, runs: 1 };
@@ -56,7 +59,8 @@ export const SignalManager = {
   },
 
   /**
-   * Aligns signal processing to standard clock intervals (5, 10, 15... 00).
+   * Aligns to standard clock intervals (5, 10, 15... 00).
+   * Ensures exactly one signal is processed per timeframe bucket.
    */
   shouldProcessStandardInterval: (intervalMinutes: number): boolean => {
     if (typeof window === 'undefined') return false;
@@ -65,8 +69,8 @@ export const SignalManager = {
     const currentMinute = now.getMinutes();
     const currentSeconds = now.getSeconds();
 
-    // Standard time intervals (e.g., 12:05, 12:10...)
-    if (currentMinute % intervalMinutes === 0 && currentSeconds < 10) {
+    // Standard time intervals: Only check at the start of the bucket
+    if (currentMinute % intervalMinutes === 0 && currentSeconds < 8) {
       const bucketId = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}-${currentMinute}`;
       const lastBucket = localStorage.getItem(LAST_BUCKET_KEY);
       
@@ -104,10 +108,10 @@ export const SignalManager = {
     digitHistory[symbol].push(dVal);
     tickHistory[symbol].push(currentPrice);
     
-    if (digitHistory[symbol].length > 15) digitHistory[symbol].shift();
-    if (tickHistory[symbol].length > 15) tickHistory[symbol].shift();
+    if (digitHistory[symbol].length > 20) digitHistory[symbol].shift();
+    if (tickHistory[symbol].length > 20) tickHistory[symbol].shift();
 
-    // Check for standard clock alignment
+    // Check for standard clock alignment (EMPORER Standard Time)
     if (!SignalManager.shouldProcessStandardInterval(intervalMinutes)) {
       return null;
     }
