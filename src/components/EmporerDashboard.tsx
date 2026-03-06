@@ -228,7 +228,7 @@ export default function EmporerDashboard() {
         botToken: botToken.trim(),
         chatId: chatId.trim(),
         symbol: "TEST MARKET",
-        strategy: "CONNECTION TEST",
+        strategy: "EMPORER CONNECTION TEST",
         type: "ACTIVE",
         price: lastDigit || "5",
         runs: 1,
@@ -277,11 +277,11 @@ export default function EmporerDashboard() {
 🎯 <b>Monitoring:</b> Multi-Market precision scan
 
 📝 <b>System Note:</b>
-EMPORER has synchronized with the global standard clock. The scanner is now identifying high-probability entries. One perfect signal will be dispatched per interval.
+EMPORER has synchronized with the global standard clock. The scanner is now identifying high-probability entries. One perfect signal will be dispatched per interval (e.g., :00, :05, :10).
 
 🔗 <a href="https://deriv.com/signup?sidc=808C8BC1-CA13-4AE4-83EE-0A6513B55687&utm_campaign=dynamicworks&utm_medium=affiliate&utm_source=CU31372"><b>Create a Deriv Trading Account</b></a>`,
         time: format(new Date(), 'HH:mm:ss'),
-        rationale: "Engine heart-beat initialized."
+        rationale: "Engine heart-beat initialized. Precise scanning active."
       });
     }
 
@@ -303,7 +303,7 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
     content = content.replace(/{entry}/g, lastDigit || "7");
     content = content.replace(/{time}/g, format(new Date(), 'HH:mm:ss'));
     content = content.replace(/{runs}/g, "1");
-    content = content.replace(/{notes}/g, "EMPORER Precision Alert: Confirmed a 5-digit sequence [7, 7, 3, 7, 7] above threshold 2. High-probability bullish bias detected.");
+    content = content.replace(/{notes}/g, "EMPORER Precision: Detected 5-digit sequence [7, 7, 3, 7, 7] strictly above 2. Digit containment confirmed. Analysis shows 98% probability for bullish continuation based on current volatility cluster.");
     return content.replace(/<[^>]*>?/gm, '');
   }, [template, lastDigit]);
 

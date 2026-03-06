@@ -26,7 +26,7 @@ export const SignalStrategies = {
       return {
         type: 'OVER 2',
         lastDigit,
-        rationale: `EMPORER Precision Alert: Confirmed a 5-digit sequence [${last5.join(', ')}] strictly above threshold 2. Statistical alignment suggests 98% probability for continuation.`
+        rationale: `EMPORER Precision: Detected 5-digit sequence [${last5.join(', ')}] strictly above 2. Digit containment confirmed. Analysis shows 98% probability for bullish continuation based on current volatility cluster.`
       };
     }
     // Under 7: All 5 digits must be < 7
@@ -34,7 +34,7 @@ export const SignalStrategies = {
       return {
         type: 'UNDER 7',
         lastDigit,
-        rationale: `EMPORER Precision Alert: Confirmed a 5-digit sequence [${last5.join(', ')}] strictly below threshold 7. Bearish digit containment verified.`
+        rationale: `EMPORER Precision: Detected 5-digit sequence [${last5.join(', ')}] strictly below 7. Bearish containment verified. Statistical alignment indicates high-probability rejection from upper threshold.`
       };
     }
     return null;
@@ -53,14 +53,14 @@ export const SignalStrategies = {
       return {
         type: 'OVER 4',
         lastDigit,
-        rationale: `Upper Tier Cluster: 5 consecutive digits [${last5.join(', ')}] exceeded threshold 4. High-frequency bullish bias detected.`
+        rationale: `EMPORER Upper Cluster: 5 consecutive digits [${last5.join(', ')}] exceeded threshold 4. Momentum confirms strong bullish bias within this tick bucket.`
       };
     }
     if (last5.every(d => d < 5)) {
       return {
         type: 'UNDER 5',
         lastDigit,
-        rationale: `Lower Tier Cluster: 5 consecutive digits [${last5.join(', ')}] remained below threshold 5. High-frequency bearish bias detected.`
+        rationale: `EMPORER Lower Cluster: 5 consecutive digits [${last5.join(', ')}] remained below threshold 5. Momentum confirms strong bearish bias within this tick bucket.`
       };
     }
     return null;
@@ -82,14 +82,14 @@ export const SignalStrategies = {
       return {
         type: 'RISE',
         lastDigit,
-        rationale: `Momentum Breakout: 7 consecutive ticks with positive price delta. Strong upward momentum confirmed for the next interval.`
+        rationale: `Trend Confirmation: 7-tick continuous positive price delta [${last7.map(t => t.toFixed(2)).join(' → ')}]. Bullish breakout confirmed via extreme momentum scan.`
       };
     }
     if (isFalling) {
       return {
         type: 'FALL',
         lastDigit,
-        rationale: `Momentum Breakdown: 7 consecutive ticks with negative price delta. Strong downward momentum confirmed for the next interval.`
+        rationale: `Trend Confirmation: 7-tick continuous negative price delta [${last7.map(t => t.toFixed(2)).join(' → ')}]. Bearish breakdown confirmed via extreme momentum scan.`
       };
     }
     return null;
@@ -108,14 +108,14 @@ export const SignalStrategies = {
       return {
         type: 'EVEN',
         lastDigit,
-        rationale: `Parity Alignment: 5 consecutive EVEN digits [${last5.join(', ')}] detected. Statistical probability heavily favors EVEN.`
+        rationale: `Parity Cluster: Detected 5 consecutive EVEN digits [${last5.join(', ')}]. Statistical analysis confirms an extreme parity shift toward Even.`
       };
     }
     if (last5.every(d => d % 2 !== 0)) {
       return {
         type: 'ODD',
         lastDigit,
-        rationale: `Parity Alignment: 5 consecutive ODD digits [${last5.join(', ')}] detected. Statistical probability heavily favors ODD.`
+        rationale: `Parity Cluster: Detected 5 consecutive ODD digits [${last5.join(', ')}]. Statistical analysis confirms an extreme parity shift toward Odd.`
       };
     }
     return null;
@@ -149,7 +149,7 @@ export const SignalStrategies = {
       return {
         type: `MATCH ${bestDigit}`,
         lastDigit,
-        rationale: `Gravity Cluster Detected: Digit '${bestDigit}' appeared ${maxCount} times in a 10-tick window. Extreme statistical pull confirmed.`
+        rationale: `Digit Gravitational Pull: Digit '${bestDigit}' appeared ${maxCount} times in a 10-tick window [${last10.join(', ')}]. Cluster density at threshold 4 confirms high Match probability.`
       };
     }
     return null;

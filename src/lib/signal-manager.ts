@@ -36,7 +36,7 @@ export const SignalManager = {
       id: Math.random().toString(36).substring(2, 9),
       timestamp: new Date().toISOString(),
       synced: false,
-      // Randomize runs between 1 and 3 as requested
+      // EMPORER Rule: Randomized runs (1-3) for risk distribution
       runs: Math.floor(Math.random() * 3) + 1,
     };
     
@@ -59,27 +59,32 @@ export const SignalManager = {
   },
 
   /**
-   * Aligns to standard clock intervals (5, 10, 15... 00).
-   * Ensuring 100% reliable dispatching even if the engine starts close to the interval.
+   * Checks if the current time matches a standard interval bucket (e.g., :00, :05, :10).
    */
-  shouldProcessStandardInterval: (intervalMinutes: number): boolean => {
-    if (typeof window === 'undefined') return false;
-    
+  isTargetInterval: (intervalMinutes: number): boolean => {
     const now = new Date();
-    const currentMinute = now.getMinutes();
+    return now.getMinutes() % intervalMinutes === 0;
+  },
 
-    // EMPORER Rule: Dispatch exactly once when the minute matches the standard interval bucket.
-    // We remove the seconds restriction to ensure that the first available tick in that target minute triggers the signal.
-    if (currentMinute % intervalMinutes === 0) {
-      const bucketId = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}-${currentMinute}`;
-      const lastBucket = localStorage.getItem(LAST_BUCKET_KEY);
-      
-      if (lastBucket !== bucketId) {
-        localStorage.setItem(LAST_BUCKET_KEY, bucketId);
-        return true;
-      }
-    }
-    return false;
+  /**
+   * Checks if a signal has already been successfully dispatched for the current clock bucket.
+   */
+  hasDispatchedForCurrentBucket: (): boolean => {
+    if (typeof window === 'undefined') return false;
+    const now = new Date();
+    const bucketId = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}-${now.getMinutes()}`;
+    const lastBucket = localStorage.getItem(LAST_BUCKET_KEY);
+    return lastBucket === bucketId;
+  },
+
+  /**
+   * Marks the current minute bucket as completed to prevent duplicate signals.
+   */
+  markBucketAsDispatched: (): void => {
+    if (typeof window === 'undefined') return;
+    const now = new Date();
+    const bucketId = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}-${now.getMinutes()}`;
+    localStorage.setItem(LAST_BUCKET_KEY, bucketId);
   },
 
   processSignalsFromData: (
@@ -102,6 +107,7 @@ export const SignalManager = {
       intervalMinutes = parseInt(intervalStr.replace('m', '')) || 5;
     }
 
+    // Maintain history per symbol
     if (!digitHistory[symbol]) digitHistory[symbol] = [];
     if (!tickHistory[symbol]) tickHistory[symbol] = [];
     
@@ -111,10 +117,11 @@ export const SignalManager = {
     if (digitHistory[symbol].length > 20) digitHistory[symbol].shift();
     if (tickHistory[symbol].length > 20) tickHistory[symbol].shift();
 
-    // EMPORER Precision: Check for standard clock alignment
-    if (!SignalManager.shouldProcessStandardInterval(intervalMinutes)) {
-      return null;
-    }
+    // EMPORER Rule: Only process during standard clock intervals (:00, :05, :10...)
+    if (!SignalManager.isTargetInterval(intervalMinutes)) return null;
+    
+    // EMPORER Rule: Never miss a signal, but never duplicate one for the same bucket
+    if (SignalManager.hasDispatchedForCurrentBucket()) return null;
     
     let strategyResult = null;
     switch (strategy) {
@@ -135,7 +142,9 @@ export const SignalManager = {
         break;
     }
 
+    // Only "consume" the bucket if a valid signal is actually produced by the technical filter
     if (strategyResult) {
+      SignalManager.markBucketAsDispatched();
       return SignalManager.saveSignal({ 
         symbol, 
         type: strategyResult.type, 
