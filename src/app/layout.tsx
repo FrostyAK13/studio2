@@ -2,7 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'SignalPulse | Advanced Financial Analysis',
+  title: 'EMPORER | Advanced Financial Analysis',
   description: 'Interactive stock analysis and offline signal intelligence platform.',
 };
 

@@ -68,7 +68,7 @@ const DEFAULT_TEMPLATE = `🚨 <b>FROSTYTRADERS – EMPORER SIGNAL</b>
 
 🔗 <a href="https://deriv.com/signup?sidc=808C8BC1-CA13-4AE4-83EE-0A6513B55687&utm_campaign=dynamicworks&utm_medium=affiliate&utm_source=CU31372"><b>Create a Deriv Trading Account</b></a>`;
 
-export default function SignalPulseDashboard() {
+export default function EmporerDashboard() {
   const [symbol, setSymbol] = useState('ALL_MARKETS');
   const [strategy, setStrategy] = useState('OVER_UNDER');
   const [timeframe, setTimeframe] = useState('5m');
@@ -314,7 +314,7 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
         <div>
           <h1 className="text-3xl font-bold text-primary flex items-center gap-2">
             <Bot className="h-8 w-8 text-accent" />
-            SignalPulse <span className="text-accent uppercase font-black">EMPORER</span>
+            <span className="text-accent uppercase font-black">EMPORER</span>
           </h1>
           <p className="text-muted-foreground mt-1 text-sm font-medium">Standard-Time Sync Multi-Market Engine</p>
         </div>
