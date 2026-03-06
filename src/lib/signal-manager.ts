@@ -114,9 +114,9 @@ export const SignalManager = {
     digitHistory[symbol].push(dVal);
     tickHistory[symbol].push(currentPrice);
     
-    // Maintain deeper history for precision filters (20 ticks)
-    if (digitHistory[symbol].length > 20) digitHistory[symbol].shift();
-    if (tickHistory[symbol].length > 20) tickHistory[symbol].shift();
+    // Maintain deeper history for precision filters (30 ticks to accommodate 8-10 streaks)
+    if (digitHistory[symbol].length > 30) digitHistory[symbol].shift();
+    if (tickHistory[symbol].length > 30) tickHistory[symbol].shift();
 
     // EMPORER Rule: Only process during standard clock intervals (:00, :05, :10...)
     if (!SignalManager.isTargetInterval(intervalMinutes)) return null;
