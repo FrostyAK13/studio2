@@ -60,17 +60,17 @@ export const SignalManager = {
 
   /**
    * Aligns to standard clock intervals (5, 10, 15... 00).
-   * Ensures exactly one signal is processed per timeframe bucket.
+   * Ensuring 100% reliable dispatching even if the engine starts close to the interval.
    */
   shouldProcessStandardInterval: (intervalMinutes: number): boolean => {
     if (typeof window === 'undefined') return false;
     
     const now = new Date();
     const currentMinute = now.getMinutes();
-    const currentSeconds = now.getSeconds();
 
-    // Standard time intervals: Only check at the start of the bucket
-    if (currentMinute % intervalMinutes === 0 && currentSeconds < 8) {
+    // EMPORER Rule: Dispatch exactly once when the minute matches the standard interval bucket.
+    // We remove the seconds restriction to ensure that the first available tick in that target minute triggers the signal.
+    if (currentMinute % intervalMinutes === 0) {
       const bucketId = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}-${currentMinute}`;
       const lastBucket = localStorage.getItem(LAST_BUCKET_KEY);
       
@@ -111,7 +111,7 @@ export const SignalManager = {
     if (digitHistory[symbol].length > 20) digitHistory[symbol].shift();
     if (tickHistory[symbol].length > 20) tickHistory[symbol].shift();
 
-    // Check for standard clock alignment (EMPORER Standard Time)
+    // EMPORER Precision: Check for standard clock alignment
     if (!SignalManager.shouldProcessStandardInterval(intervalMinutes)) {
       return null;
     }
