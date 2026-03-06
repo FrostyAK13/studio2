@@ -22,9 +22,9 @@ const digitHistory: Record<string, number[]> = {};
 const tickHistory: Record<string, number[]> = {};
 
 export const SignalManager = {
-  saveSignal: (signal: Omit<Signal, 'id' | 'timestamp' | 'synced'>): Signal => {
+  saveSignal: (signal: Omit<Signal, 'id' | 'timestamp' | 'synced' | 'runs'>): Signal => {
     if (typeof window === 'undefined') {
-       return { ...signal, id: 'mock', timestamp: new Date().toISOString(), synced: false };
+       return { ...signal, id: 'mock', timestamp: new Date().toISOString(), synced: false, runs: 1 };
     }
     
     const signals = SignalManager.getSignals();
@@ -33,6 +33,8 @@ export const SignalManager = {
       id: Math.random().toString(36).substring(2, 9),
       timestamp: new Date().toISOString(),
       synced: false,
+      // Randomize runs between 1 and 3 as requested
+      runs: Math.floor(Math.random() * 3) + 1,
     };
     
     const updatedSignals = [newSignal, ...signals].slice(0, 100);
@@ -54,7 +56,7 @@ export const SignalManager = {
   },
 
   /**
-   * Aligns signal processing to standard clock intervals (e.g., :00, :05, :10).
+   * Aligns signal processing to standard clock intervals (5, 10, 15... 00).
    */
   shouldProcessStandardInterval: (intervalMinutes: number): boolean => {
     if (typeof window === 'undefined') return false;
@@ -63,8 +65,8 @@ export const SignalManager = {
     const currentMinute = now.getMinutes();
     const currentSeconds = now.getSeconds();
 
-    // Check if we are at a standard interval
-    if (currentMinute % intervalMinutes === 0 && currentSeconds < 15) {
+    // Standard time intervals (e.g., 12:05, 12:10...)
+    if (currentMinute % intervalMinutes === 0 && currentSeconds < 10) {
       const bucketId = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}-${currentMinute}`;
       const lastBucket = localStorage.getItem(LAST_BUCKET_KEY);
       
@@ -90,10 +92,10 @@ export const SignalManager = {
     if (isNaN(dVal)) return null;
 
     let intervalMinutes = 5;
-    if (intervalStr.endsWith('h')) {
+    if (intervalStr.includes('h')) {
       intervalMinutes = parseInt(intervalStr) * 60;
     } else {
-      intervalMinutes = parseInt(intervalStr) || 5;
+      intervalMinutes = parseInt(intervalStr.replace('m', '')) || 5;
     }
 
     if (!digitHistory[symbol]) digitHistory[symbol] = [];
@@ -102,10 +104,10 @@ export const SignalManager = {
     digitHistory[symbol].push(dVal);
     tickHistory[symbol].push(currentPrice);
     
-    if (digitHistory[symbol].length > 10) digitHistory[symbol].shift();
-    if (tickHistory[symbol].length > 10) tickHistory[symbol].shift();
+    if (digitHistory[symbol].length > 15) digitHistory[symbol].shift();
+    if (tickHistory[symbol].length > 15) tickHistory[symbol].shift();
 
-    // Force standard interval check
+    // Check for standard clock alignment
     if (!SignalManager.shouldProcessStandardInterval(intervalMinutes)) {
       return null;
     }
@@ -138,8 +140,7 @@ export const SignalManager = {
         rawPrice, 
         lastDigit: strategyResult.lastDigit, 
         interval: intervalStr,
-        rationale: strategyResult.rationale,
-        runs: 1
+        rationale: strategyResult.rationale
       });
     }
     

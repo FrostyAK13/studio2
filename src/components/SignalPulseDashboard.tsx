@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -50,18 +49,18 @@ const TIMEFRAMES = [
   { value: '1h', label: '1 Hour' },
 ];
 
-const DEFAULT_TEMPLATE = `🚨 <b>FROSTYTRADERS – DERIV SIGNAL</b>
+const DEFAULT_TEMPLATE = `🚨 <b>FROSTYTRADERS – EMPORER SIGNAL</b>
 
 📊 <b>Market:</b> {market}
 🤖 <b>Bot / Strategy:</b> {strategy}
 🎯 <b>Signal :</b> {signal}
 📲 <b>Entry Point:</b> {entry}
-⏱ <b>Signal Duration:</b> {timeframe}
+⏱ <b>Signal Duration:</b> {time}
 🔁 <b>Number of Runs:</b> {runs}
-🔄 <b>Recovery:</b> {recovery}
-💪 <b>Confidence Level:</b> {confidence}
+🔄 <b>Recovery:</b> Martingale
+💪 <b>Confidence Level:</b> 98%
 
-🚫 <b>Contact:</b> {contact}
+🚫 <b>Contact:</b> @FrostyTradersSupport
 
 📝 <b>Additional Notes:</b>
 {notes}
@@ -227,14 +226,14 @@ export default function SignalPulseDashboard() {
       const result = await dispatchSignalToTelegram({
         botToken: botToken.trim(),
         chatId: chatId.trim(),
-        symbol: "TEST MARKET (VOL 100)",
-        strategy: "CONNECTION TEST",
-        type: "SUCCESS",
+        symbol: "TEST MARKET",
+        strategy: "EMPORER CONNECTION TEST",
+        type: "ACTIVE",
         price: lastDigit || "5",
         runs: 1,
         template,
         time: format(new Date(), 'HH:mm:ss'),
-        rationale: "Connection test successful. Bot is online and ready for high-fidelity signal dispatch."
+        rationale: "Connection test successful. EMPORER engine is now synchronized with standard clock intervals."
       });
 
       if (result.success) {
@@ -254,7 +253,7 @@ export default function SignalPulseDashboard() {
     localStorage.setItem('tg_chat_id', chatId);
     localStorage.setItem('tg_template', template);
     setShowSettings(false);
-    toast({ title: "Settings Saved", description: "FrostyTraders bot configuration updated." });
+    toast({ title: "Settings Saved", description: "EMPORER bot configuration updated." });
   };
 
   const toggleEngine = async () => {
@@ -262,23 +261,21 @@ export default function SignalPulseDashboard() {
     setIsEngineActive(newState);
     
     if (newState && botToken && chatId) {
-      // Send Pulse Confirmation to Channel
       await dispatchSignalToTelegram({
         botToken: botToken.trim(),
         chatId: chatId.trim(),
-        symbol: "SYSTEM STATUS",
-        strategy: "ENGINE INITIALIZATION",
-        type: "ACTIVE",
+        symbol: "EMPORER SYSTEM",
+        strategy: "CLOCK SYNC INITIALIZATION",
+        type: "ONLINE",
         price: "0",
-        template: `🚀 <b>FROSTYTRADERS – ENGINE PULSE</b>
+        template: `🚀 <b>FROSTYTRADERS – EMPORER ENGINE ACTIVE</b>
 
-📊 <b>Status:</b> ACTIVE
-🤖 <b>Node:</b> EMPORER 24/7 SCANNER
-⏱ <b>Interval Sync:</b> Standard ${timeframe} Windows
-🎯 <b>Monitoring:</b> All Volatility Indices
+📊 <b>Status:</b> ONLINE
+🤖 <b>Standard Intervals:</b> :00, :05, :10...
+🎯 <b>Monitoring:</b> Multi-Market precision scan
 
 📝 <b>System Note:</b>
-The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring for high-probability signals aligned to standard clock intervals (:00, :05, :10...).
+EMPORER has synchronized with the global standard clock. The scanner is now identifying high-probability entries. One perfect signal will be dispatched per interval.
 
 🔗 <a href="https://deriv.com/signup?sidc=808C8BC1-CA13-4AE4-83EE-0A6513B55687&utm_campaign=dynamicworks&utm_medium=affiliate&utm_source=CU31372"><b>Create a Deriv Trading Account</b></a>`,
         time: format(new Date(), 'HH:mm:ss'),
@@ -287,7 +284,7 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
     }
 
     toast({
-      title: newState ? "Engine Pulse Active" : "Engine Pulse Stopped",
+      title: newState ? "EMPORER Engine Active" : "EMPORER Engine Stopped",
       description: newState 
         ? "Standard clock intervals synchronized. Scanning for high-probability entries."
         : "Automated monitoring suspended.",
@@ -303,14 +300,10 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
     content = content.replace(/{signal}/g, "MATCH 7");
     content = content.replace(/{entry}/g, lastDigit || "7");
     content = content.replace(/{time}/g, format(new Date(), 'HH:mm:ss'));
-    content = content.replace(/{timeframe}/g, timeframe);
     content = content.replace(/{runs}/g, "1");
-    content = content.replace(/{recovery}/g, "Martingale");
-    content = content.replace(/{confidence}/g, "98%");
-    content = content.replace(/{contact}/g, "@FrostyTradersSupport");
-    content = content.replace(/{notes}/g, "Frequency Cluster Analysis (MATCH 7): Detected a 'Gravity Cluster' where the digit 7 appeared 4 times in the last 10 ticks. High statistical alignment confirmed.");
+    content = content.replace(/{notes}/g, "Extreme Precision Alert: Detected a sequence of 5 consecutive digits [7, 7, 3, 7, 7]. High statistical alignment confirmed.");
     return content.replace(/<[^>]*>?/gm, '');
-  }, [template, lastDigit, timeframe]);
+  }, [template, lastDigit]);
 
   if (!mounted) return null;
 
@@ -320,9 +313,9 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
         <div>
           <h1 className="text-3xl font-bold text-primary flex items-center gap-2">
             <Bot className="h-8 w-8 text-accent" />
-            SignalPulse <span className="text-accent uppercase font-black">FrostyTraders</span>
+            SignalPulse <span className="text-accent uppercase font-black">EMPORER</span>
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm font-medium">EMPORER 24/7 Precision Standard-Time Sync Engine</p>
+          <p className="text-muted-foreground mt-1 text-sm font-medium">Standard-Time Sync Multi-Market Engine</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="px-3 py-1 bg-white flex gap-2 items-center shadow-sm text-[10px] font-bold text-primary border-primary/20">
@@ -375,7 +368,7 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
                 <div className="p-4 bg-accent/5 rounded-xl border border-accent/10">
                   <p className="text-[10px] font-bold text-accent uppercase mb-2">Available Placeholders:</p>
                   <div className="flex flex-wrap gap-2">
-                    {['{market}', '{strategy}', '{signal}', '{entry}', '{time}', '{timeframe}', '{runs}', '{recovery}', '{confidence}', '{notes}'].map(tag => (
+                    {['{market}', '{strategy}', '{signal}', '{entry}', '{time}', '{runs}', '{notes}'].map(tag => (
                       <Badge key={tag} variant="secondary" className="text-[9px] font-mono py-0">{tag}</Badge>
                     ))}
                   </div>
@@ -413,7 +406,7 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
         <div className="lg:col-span-1 space-y-6">
           <Card className={cn("shadow-2xl border-none transition-all duration-500", isEngineActive ? "ring-2 ring-accent bg-white" : "bg-white opacity-90")}>
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-primary/80">Engine Control</CardTitle>
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-primary/80">EMPORER Engine</CardTitle>
               {isEngineActive && <Activity className="h-4 w-4 text-accent animate-pulse" />}
             </CardHeader>
             <CardContent className="space-y-4">
@@ -425,9 +418,9 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
                 )}
               >
                 {isEngineActive ? (
-                  <><Square className="h-4 w-4 mr-2 fill-current" /> STOP 24/7 ENGINE</>
+                  <><Square className="h-4 w-4 mr-2 fill-current" /> STOP SCANNER</>
                 ) : (
-                  <><Play className="h-4 w-4 mr-2 fill-current" /> START 24/7 ENGINE</>
+                  <><Play className="h-4 w-4 mr-2 fill-current" /> START SCANNER</>
                 )}
               </Button>
 
@@ -440,7 +433,7 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
                   </div>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl border border-border/50 text-center">
-                  <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Standard Sync</p>
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Standard Time</p>
                   <div className="flex items-center justify-center gap-1">
                     <Clock className="h-3 w-3 text-accent" />
                     <span className="text-[10px] font-black uppercase tabular-nums">:{format(new Date(), 'mm')} Bucket</span>
@@ -479,7 +472,7 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {TIMEFRAMES.map(t => <SelectItem key={t.value} value={t.label}>{t.label}</SelectItem>)}
+                    {TIMEFRAMES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -489,12 +482,12 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
           <Card className="shadow-lg border-none bg-primary text-primary-foreground overflow-hidden">
             <CardContent className="pt-6">
               <div className="flex flex-col items-center justify-center text-center space-y-2">
-                <p className="text-[10px] font-bold uppercase opacity-70 tracking-[0.2em]">Live Pulse Node</p>
+                <p className="text-[10px] font-bold uppercase opacity-70 tracking-[0.2em]">Live Price</p>
                 <div className="text-4xl font-mono font-bold tracking-tighter tabular-nums">
                   {liveTick ? liveTick.rawQuote : '---.---'}
                 </div>
                 <div className="mt-4 w-full pt-4 border-t border-white/10 flex justify-between items-center">
-                  <span className="text-[10px] font-bold opacity-60 uppercase">Entry Digit:</span>
+                  <span className="text-[10px] font-bold opacity-60 uppercase">Plain Entry Digit:</span>
                   <span className="text-4xl font-bold text-accent font-mono underline underline-offset-4 decoration-accent/30">
                     {lastDigit || '-'}
                   </span>
@@ -508,11 +501,11 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
           <CardHeader className="flex flex-row items-center justify-between pb-4 border-b">
             <div>
               <CardTitle className="text-xl font-bold flex items-center gap-2">
-                {symbol === 'ALL_MARKETS' ? 'EMPORER Multi-Market Scanner' : VOLATILITY_INDICES.find(i => i.value === symbol)?.label}
-                <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700">T{timeframe}</Badge>
+                {symbol === 'ALL_MARKETS' ? 'EMPORER Multi-Market Feed' : VOLATILITY_INDICES.find(i => i.value === symbol)?.label}
+                <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700">{timeframe} INTERVAL</Badge>
               </CardTitle>
               <CardDescription className="text-xs uppercase font-bold text-muted-foreground/60 tracking-widest">
-                Dispatched Strategy Feed (24/7 Channel History)
+                Dispatched Strategy History (Extreme Precision Filter)
               </CardDescription>
             </div>
             <div className="text-right">
@@ -542,7 +535,7 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
                           <Badge className="text-[8px] h-4 bg-primary/10 text-primary border-none uppercase">DISPATCHED</Badge>
                         </div>
                         <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mt-0.5 line-clamp-1">
-                          {format(new Date(signal.timestamp), 'HH:mm:ss')} | Entry: {signal.lastDigit} | {signal.rationale}
+                          {format(new Date(signal.timestamp), 'HH:mm:ss')} | Entry: {signal.lastDigit} | Runs: {signal.runs} | {signal.rationale}
                         </div>
                       </div>
                     </div>
@@ -563,7 +556,7 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
                       EMPORER Scanner Syncing...
                     </p>
                     <p className="text-[10px] font-medium">
-                      Waiting for the next standard {timeframe} clock interval (:00, :05, :10...).
+                      Waiting for standard clock interval (:{timeframe} bucket).
                     </p>
                   </div>
                 </div>
@@ -576,8 +569,8 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
         <Card className="shadow-sm border-none ring-1 ring-border/50 bg-white">
           <CardHeader>
-            <CardTitle className="text-lg">Network Intelligence</CardTitle>
-            <CardDescription className="text-xs font-bold uppercase tracking-widest opacity-60">24/7 Automated Guard Metrics</CardDescription>
+            <CardTitle className="text-lg">Engine Metrics</CardTitle>
+            <CardDescription className="text-xs font-bold uppercase tracking-widest opacity-60">High-Fidelity Automated Guard</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
@@ -586,12 +579,12 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
                 <p className="text-3xl font-mono font-bold text-primary">{signals.length}</p>
               </div>
               <div className="p-4 rounded-2xl bg-slate-50 border border-border/50">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Standard Bucket</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Clock Sync</p>
                 <div className="text-lg font-bold flex items-center gap-2">
                   <div className={cn("w-2 h-2 rounded-full", isOnline ? "bg-emerald-500" : "bg-rose-500")} />
-                  {isOnline ? 'HEALTHY SYNC' : 'OFFLINE MODE'}
+                  {isOnline ? 'HEALTHY' : 'BUFFERING'}
                 </div>
-                <p className="text-[9px] text-muted-foreground mt-1 font-bold uppercase">:{format(new Date(), 'mm')} standard minute bucket</p>
+                <p className="text-[9px] text-muted-foreground mt-1 font-bold uppercase">:{format(new Date(), 'mm')} standard bucket</p>
               </div>
             </div>
           </CardContent>
@@ -600,9 +593,9 @@ The 24/7 Multi-Market Scanning Engine has initialized successfully. Monitoring f
         <Card className="shadow-sm border-none ring-1 ring-border/50 bg-accent text-accent-foreground overflow-hidden relative">
           <Activity className="absolute h-48 w-48 text-white/5 -right-8 -bottom-8" />
           <CardContent className="pt-8 text-center h-full flex flex-col justify-center">
-            <p className="text-[10px] font-bold uppercase opacity-70 tracking-widest">System Reliability</p>
-            <div className="text-5xl font-mono font-bold tracking-tighter my-2">100%</div>
-            <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">FrostyTraders Clock-Sync Engine Active</p>
+            <p className="text-[10px] font-bold uppercase opacity-70 tracking-widest">Precision Rating</p>
+            <div className="text-5xl font-mono font-bold tracking-tighter my-2">98%</div>
+            <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">EMPORER Clock-Sync Active</p>
           </CardContent>
         </Card>
       </section>
