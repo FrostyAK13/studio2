@@ -114,6 +114,7 @@ export const SignalManager = {
     digitHistory[symbol].push(dVal);
     tickHistory[symbol].push(currentPrice);
     
+    // Maintain deeper history for precision filters (20 ticks)
     if (digitHistory[symbol].length > 20) digitHistory[symbol].shift();
     if (tickHistory[symbol].length > 20) tickHistory[symbol].shift();
 
@@ -142,7 +143,7 @@ export const SignalManager = {
         break;
     }
 
-    // Only "consume" the bucket if a valid signal is actually produced by the technical filter
+    // Only "consume" the bucket if a valid signal is actually produced by the precision filter
     if (strategyResult) {
       SignalManager.markBucketAsDispatched();
       return SignalManager.saveSignal({ 

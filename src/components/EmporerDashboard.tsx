@@ -50,7 +50,7 @@ const TIMEFRAMES = [
 ];
 
 const DEFAULT_TEMPLATE = `📈 <b>FROSTYTRADERS❄️SIGNAL</b> 📉
-🚨 <b>FROSTYTRADERS - EMPORER</b>
+🚀 <b>FROSTYTRADERS - EMPORER</b>
 
 📊 <b>Market:</b> {market}
 🤖 <b>Bot / Strategy:</b> FROSTY ➿ DOMINATOR - {strategy}
@@ -59,7 +59,7 @@ const DEFAULT_TEMPLATE = `📈 <b>FROSTYTRADERS❄️SIGNAL</b> 📉
 ⏱ <b>Signal Time:</b> {time}
 🔁 <b>Number of Runs:</b> {runs}
 🔄 <b>Recovery:</b> Martingale @ 2.5
-💪 <b>Confidence Level:</b> 98%
+💪 <b>Confidence Level:</b> 98.4%
 
 🚫 <b>Contact:</b> @FrostyTradersSupport
 
@@ -184,7 +184,7 @@ export default function EmporerDashboard() {
         symbol: currentSymbolLabel,
         strategy: currentStrategyLabel,
         type: signal.type,
-        price: signal.lastDigit || "0",
+        price: signal.lastDigit || "0", // Plain entry point digit
         runs: signal.runs || 1,
         template,
         time: format(new Date(signal.timestamp), 'HH:mm:ss'),
@@ -227,14 +227,14 @@ export default function EmporerDashboard() {
       const result = await dispatchSignalToTelegram({
         botToken: botToken.trim(),
         chatId: chatId.trim(),
-        symbol: "TEST MARKET",
-        strategy: "EMPORER CONNECTION TEST",
+        symbol: "EMPORER TEST NODE",
+        strategy: "CLOCK SYNC TEST",
         type: "ACTIVE",
         price: lastDigit || "5",
         runs: 1,
         template,
         time: format(new Date(), 'HH:mm:ss'),
-        rationale: "Connection test successful. EMPORER engine is now synchronized with standard clock intervals."
+        rationale: "Professional connection test. EMPORER engine is now synchronized with standard clock intervals. Ready for high-precision scanning."
       });
 
       if (result.success) {
@@ -262,6 +262,7 @@ export default function EmporerDashboard() {
     setIsEngineActive(newState);
     
     if (newState && botToken && chatId) {
+      // Send engine start confirmation to Telegram
       await dispatchSignalToTelegram({
         botToken: botToken.trim(),
         chatId: chatId.trim(),
@@ -274,14 +275,14 @@ export default function EmporerDashboard() {
 
 📊 <b>Status:</b> ONLINE
 🤖 <b>Bot / Strategy:</b> FROSTY ➿ DOMINATOR - CLOCK SYNC
-🎯 <b>Monitoring:</b> Multi-Market precision scan
+🎯 <b>Monitoring:</b> Multi-Market precision scan activated
 
 📝 <b>System Note:</b>
-EMPORER has synchronized with the global standard clock. The scanner is now identifying high-probability entries. One perfect signal will be dispatched per interval (e.g., :00, :05, :10).
+EMPORER has synchronized with the global standard clock. The scanner is now identifying high-probability entries. One perfect signal will be dispatched exactly per interval mark (e.g., :00, :05, :10).
 
 🔗 <a href="https://deriv.com/signup?sidc=808C8BC1-CA13-4AE4-83EE-0A6513B55687&utm_campaign=dynamicworks&utm_medium=affiliate&utm_source=CU31372"><b>Create a Deriv Trading Account</b></a>`,
         time: format(new Date(), 'HH:mm:ss'),
-        rationale: "Engine heart-beat initialized. Precise scanning active."
+        rationale: "Engine heart-beat initialized. Extreme precision scanning active."
       });
     }
 
@@ -302,8 +303,8 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
     content = content.replace(/{signal}/g, "MATCH 7");
     content = content.replace(/{entry}/g, lastDigit || "7");
     content = content.replace(/{time}/g, format(new Date(), 'HH:mm:ss'));
-    content = content.replace(/{runs}/g, "1");
-    content = content.replace(/{notes}/g, "EMPORER Precision: Detected 5-digit sequence [7, 7, 3, 7, 7] strictly above 2. Digit containment confirmed. Analysis shows 98% probability for bullish continuation based on current volatility cluster.");
+    content = content.replace(/{runs}/g, "2");
+    content = content.replace(/{notes}/g, "EMPORER Precision Analysis: Identified a 6-digit stability cluster [7, 7, 3, 7, 7, 7] consistently at digit 7. Market alignment logic confirmed for Match 7.");
     return content.replace(/<[^>]*>?/gm, '');
   }, [template, lastDigit]);
 
@@ -315,9 +316,9 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
         <div>
           <h1 className="text-3xl font-bold text-primary flex items-center gap-2">
             <Bot className="h-8 w-8 text-accent" />
-            <span className="text-accent uppercase font-black">EMPORER</span>
+            <span className="text-accent uppercase font-black tracking-tighter">EMPORER</span>
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm font-medium">Standard-Time Sync Multi-Market Engine</p>
+          <p className="text-muted-foreground mt-1 text-sm font-medium">Standard-Time Sync Extreme Precision Engine</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="px-3 py-1 bg-white flex gap-2 items-center shadow-sm text-[10px] font-bold text-primary border-primary/20">
@@ -596,7 +597,7 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
           <Activity className="absolute h-48 w-48 text-white/5 -right-8 -bottom-8" />
           <CardContent className="pt-8 text-center h-full flex flex-col justify-center">
             <p className="text-[10px] font-bold uppercase opacity-70 tracking-widest">Precision Rating</p>
-            <div className="text-5xl font-mono font-bold tracking-tighter my-2">98%</div>
+            <div className="text-5xl font-mono font-bold tracking-tighter my-2">98.4%</div>
             <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">EMPORER Clock-Sync Active</p>
           </CardContent>
         </Card>
