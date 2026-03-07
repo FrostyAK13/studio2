@@ -63,7 +63,8 @@ export const SignalManager = {
    */
   isTargetInterval: (intervalMinutes: number): boolean => {
     const now = new Date();
-    return now.getMinutes() % intervalMinutes === 0;
+    const minutes = now.getMinutes();
+    return minutes % intervalMinutes === 0;
   },
 
   /**
@@ -114,7 +115,7 @@ export const SignalManager = {
     digitHistory[symbol].push(dVal);
     tickHistory[symbol].push(currentPrice);
     
-    // Maintain deeper history for precision filters (30 ticks to accommodate 8-10 streaks)
+    // Maintain deeper history for precision filters (30 ticks to accommodate 8-digit streaks)
     if (digitHistory[symbol].length > 30) digitHistory[symbol].shift();
     if (tickHistory[symbol].length > 30) tickHistory[symbol].shift();
 

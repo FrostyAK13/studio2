@@ -196,7 +196,7 @@ export default function EmporerDashboard() {
         setSignals(SignalManager.getSignals());
       }
     } catch (e) {
-      console.error("Auto-dispatch error", e);
+      console.error("EMPORER Auto-dispatch error", e);
     }
   };
 
@@ -243,7 +243,7 @@ export default function EmporerDashboard() {
         toast({ variant: "destructive", title: "Test Failed", description: result.error || "Could not reach Telegram API." });
       }
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Server Action Error", description: "The connection to the server was interrupted." });
+      toast({ variant: "destructive", title: "Server Action Error", description: "The connection to the server was interrupted. Check your bot credentials." });
     } finally {
       setIsTesting(false);
     }
@@ -262,15 +262,16 @@ export default function EmporerDashboard() {
     setIsEngineActive(newState);
     
     if (newState && botToken && chatId) {
-      // Send engine start confirmation to Telegram
-      await dispatchSignalToTelegram({
-        botToken: botToken.trim(),
-        chatId: chatId.trim(),
-        symbol: "EMPORER SYSTEM",
-        strategy: "CLOCK SYNC INITIALIZATION",
-        type: "ONLINE",
-        price: "0",
-        template: `📈 <b>FROSTYTRADERS❄️SIGNAL</b> 📉
+      try {
+        // Send engine start confirmation to Telegram
+        await dispatchSignalToTelegram({
+          botToken: botToken.trim(),
+          chatId: chatId.trim(),
+          symbol: "EMPORER SYSTEM",
+          strategy: "CLOCK SYNC INITIALIZATION",
+          type: "ONLINE",
+          price: "0",
+          template: `📈 <b>FROSTYTRADERS❄️SIGNAL</b> 📉
 🚀 <b>FROSTYTRADERS – EMPORER ENGINE ACTIVE</b>
 
 📊 <b>Status:</b> ONLINE
@@ -281,9 +282,12 @@ export default function EmporerDashboard() {
 EMPORER has synchronized with the global standard clock. The scanner is now identifying high-probability entries. One perfect signal will be dispatched exactly per interval mark (e.g., :00, :05, :10).
 
 🔗 <a href="https://deriv.com/signup?sidc=808C8BC1-CA13-4AE4-83EE-0A6513B55687&utm_campaign=dynamicworks&utm_medium=affiliate&utm_source=CU31372"><b>Create a Deriv Trading Account</b></a>`,
-        time: format(new Date(), 'HH:mm:ss'),
-        rationale: "Engine heart-beat initialized. Extreme precision scanning active."
-      });
+          time: format(new Date(), 'HH:mm:ss'),
+          rationale: "Engine heart-beat initialized. Extreme precision scanning active."
+        });
+      } catch (e) {
+        console.error("Activation dispatch failed", e);
+      }
     }
 
     toast({
@@ -304,7 +308,7 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
     content = content.replace(/{entry}/g, lastDigit || "7");
     content = content.replace(/{time}/g, format(new Date(), 'HH:mm:ss'));
     content = content.replace(/{runs}/g, "2");
-    content = content.replace(/{notes}/g, "EMPORER Precision Analysis: Identified a 6-digit stability cluster [7, 7, 3, 7, 7, 7] consistently at digit 7. Market alignment logic confirmed for Match 7.");
+    content = content.replace(/{notes}/g, "EMPORER Precision Analysis: Identified an 8-digit stability cluster [7, 7, 3, 7, 7, 7, 0, 7] consistently at digit 7. Market alignment logic confirmed for Match 7.");
     return content.replace(/<[^>]*>?/gm, '');
   }, [template, lastDigit]);
 

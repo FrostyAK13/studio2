@@ -1,10 +1,9 @@
-
 'use server';
 /**
- * @fileOverview FROSTYTRADERS Signal Dispatcher Flow.
+ * @fileOverview EMPORER Signal Dispatcher Flow.
  * 
  * Uses Genkit to format market signals using a customizable template.
- * Now dynamically handles the {notes} placeholder for signal rationale.
+ * Optimized for robustness in Next.js Server Action environments.
  */
 
 import { ai } from '@/ai/genkit';
@@ -31,15 +30,28 @@ const DispatchOutputSchema = z.object({
 
 /**
  * Server Action wrapper with robust error handling for the Next.js environment.
+ * Ensures the response is always a plain serializable object.
  */
 export async function dispatchSignalToTelegram(input: z.infer<typeof DispatchInputSchema>) {
   try {
-    return await dispatchSignalFlow(input);
+    // Basic input sanitation
+    const cleanInput = {
+      ...input,
+      botToken: input.botToken?.trim(),
+      chatId: input.chatId?.trim(),
+    };
+
+    if (!cleanInput.botToken || !cleanInput.chatId) {
+      return { success: false, error: "Configuration Missing: Bot Token or Chat ID not found." };
+    }
+
+    const result = await dispatchSignalFlow(cleanInput);
+    return JSON.parse(JSON.stringify(result)); // Force serializable plain object
   } catch (e: any) {
-    console.error("Signal Dispatch Error:", e);
+    console.error("EMPORER Signal Dispatch Error:", e);
     return { 
       success: false, 
-      error: e.message || "An unexpected error occurred during dispatch." 
+      error: e.message || "An unexpected error occurred during dispatch. Please check your bot settings." 
     };
   }
 }
@@ -65,30 +77,23 @@ const dispatchSignalFlow = ai.defineFlow(
       
       // Default mappings if missing in specific inputs
       message = message.replace(/{timeframe}/g, "5m");
-      message = message.replace(/{recovery}/g, "Martingale");
-      message = message.replace(/{confidence}/g, "98%");
+      message = message.replace(/{recovery}/g, "Martingale @ 2.5");
+      message = message.replace(/{confidence}/g, "98.4%");
       message = message.replace(/{contact}/g, "@FrostyTradersSupport");
       
       // Inject the dynamic rationale into the {notes} placeholder
-      message = message.replace(/{notes}/g, input.rationale || "Follow strict risk management.");
+      message = message.replace(/{notes}/g, input.rationale || "Follow strict risk management. One-shot entry.");
 
-      const botToken = input.botToken.trim();
-      const chatId = input.chatId.trim();
-
-      if (!botToken || !chatId) {
-        return { success: false, error: "Bot Token or Chat ID is missing." };
-      }
-
-      const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+      const url = `https://api.telegram.org/bot${input.botToken}/sendMessage`;
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout for Server Actions
 
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: chatId,
+          chat_id: input.chatId,
           text: message,
           parse_mode: 'HTML',
           disable_web_page_preview: false
@@ -97,6 +102,14 @@ const dispatchSignalFlow = ai.defineFlow(
       });
 
       clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return { 
+          success: false, 
+          error: `Telegram API responded with error: ${response.status} ${errorText}` 
+        };
+      }
 
       const result = await response.json();
 
@@ -110,9 +123,9 @@ const dispatchSignalFlow = ai.defineFlow(
       return { success: true, messageId: result.result.message_id.toString() };
     } catch (e: any) {
       if (e.name === 'AbortError') {
-        return { success: false, error: "Telegram API request timed out." };
+        return { success: false, error: "Telegram API request timed out. High network latency detected." };
       }
-      return { success: false, error: `System Error: ${e.message}` };
+      return { success: false, error: `System Dispatch Error: ${e.message}` };
     }
   }
 );
