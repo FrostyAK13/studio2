@@ -30,7 +30,7 @@ export const SignalManager = {
        return { ...signal, id: 'mock', timestamp: new Date().toISOString(), synced: false, runs: 1 };
     }
     
-    const signals = SignalManager.getSignals();
+    const signals = SignalManager.getSignalsInternal();
     const newSignal: Signal = {
       ...signal,
       id: Math.random().toString(36).substring(2, 9),
@@ -45,15 +45,34 @@ export const SignalManager = {
     return newSignal;
   },
 
-  getSignals: (): Signal[] => {
+  /**
+   * Gets all signals from storage.
+   */
+  getSignalsInternal: (): Signal[] => {
     if (typeof window === 'undefined') return [];
     const stored = localStorage.getItem(STORAGE_KEY);
     return stored ? JSON.parse(stored) : [];
   },
 
+  /**
+   * Returns only successfully dispatched (sent) signals.
+   */
+  getSignals: (): Signal[] => {
+    return SignalManager.getSignalsInternal().filter(s => s.synced);
+  },
+
+  /**
+   * Clears the entire signal history.
+   */
+  clearSignals: (): void => {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(LAST_BUCKET_KEY);
+  },
+
   markAsSynced: (signalId: string): void => {
     if (typeof window === 'undefined') return;
-    const signals = SignalManager.getSignals();
+    const signals = SignalManager.getSignalsInternal();
     const updated = signals.map(s => s.id === signalId ? { ...s, synced: true } : s);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   },
@@ -115,14 +134,14 @@ export const SignalManager = {
     digitHistory[symbol].push(dVal);
     tickHistory[symbol].push(currentPrice);
     
-    // Maintain deeper history for precision filters (30 ticks to accommodate 8-digit streaks)
-    if (digitHistory[symbol].length > 30) digitHistory[symbol].shift();
-    if (tickHistory[symbol].length > 30) tickHistory[symbol].shift();
+    // Maintain deep history for 8-digit stability streaks
+    if (digitHistory[symbol].length > 40) digitHistory[symbol].shift();
+    if (tickHistory[symbol].length > 40) tickHistory[symbol].shift();
 
     // EMPORER Rule: Only process during standard clock intervals (:00, :05, :10...)
     if (!SignalManager.isTargetInterval(intervalMinutes)) return null;
     
-    // EMPORER Rule: Never miss a signal, but never duplicate one for the same bucket
+    // EMPORER Rule: Never duplicate a signal for the same bucket
     if (SignalManager.hasDispatchedForCurrentBucket()) return null;
     
     let strategyResult = null;
@@ -144,7 +163,6 @@ export const SignalManager = {
         break;
     }
 
-    // Only "consume" the bucket if a valid signal is actually produced by the precision filter
     if (strategyResult) {
       SignalManager.markBucketAsDispatched();
       return SignalManager.saveSignal({ 

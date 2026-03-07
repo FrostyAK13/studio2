@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { format } from 'date-fns';
-import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings, Play, Square, Server } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings, Play, Square, Server, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -89,9 +89,8 @@ export default function EmporerDashboard() {
 
   useEffect(() => {
     setMounted(true);
-    // Only fetch signals that were successfully sent (synced)
-    const storedSignals = SignalManager.getSignals().filter(s => s.synced);
-    setSignals(storedSignals);
+    // Initial load: Only show signals that were successfully sent
+    setSignals(SignalManager.getSignals());
     
     if (typeof window !== 'undefined') {
       setBotToken(localStorage.getItem('tg_bot_token') || '');
@@ -187,12 +186,21 @@ export default function EmporerDashboard() {
 
       if (result.success) {
         SignalManager.markAsSynced(signal.id);
-        // Refresh local view after successful sync
-        setSignals(SignalManager.getSignals().filter(s => s.synced));
+        // Refresh feed with only sent signals
+        setSignals(SignalManager.getSignals());
       }
     } catch (e) {
       console.error("EMPORER Dispatch Error:", e);
     }
+  };
+
+  const handleClearHistory = () => {
+    SignalManager.clearSignals();
+    setSignals([]);
+    toast({
+      title: "History Cleared",
+      description: "All dispatched signal history has been removed.",
+    });
   };
 
   const handleTestBot = async () => {
@@ -511,6 +519,19 @@ EMPORER has synchronized with the global standard clock. One high-probability si
                   </div>
                 </div>
               )}
+            </div>
+            
+            <div className="mt-6 pt-4 border-t flex justify-end">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleClearHistory}
+                disabled={signals.length === 0}
+                className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-[10px] font-bold uppercase tracking-widest gap-2"
+              >
+                <Trash2 className="h-3 w-3" />
+                Clear Dispatched History
+              </Button>
             </div>
           </CardContent>
         </Card>
