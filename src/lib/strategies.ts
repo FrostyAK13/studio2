@@ -1,6 +1,6 @@
 /**
  * @fileOverview Shared Technical Analysis Strategies for EMPORER Engine.
- * Implements extreme precision filters (7-10 unit streaks) to minimize losses and ensure high-fidelity signals.
+ * Implements extreme precision filters (8-10 unit streaks) to minimize losses.
  */
 
 export type SignalType = 'RISE' | 'FALL' | 'EVEN' | 'ODD' | 'OVER 2' | 'UNDER 7' | 'OVER 4' | 'UNDER 5' | string;
@@ -26,7 +26,7 @@ export const SignalStrategies = {
       return {
         type: 'OVER 2',
         lastDigit,
-        rationale: `EMPORER Extreme Precision: Identified an 8-digit stability cluster [${last8.join(', ')}] consistently above threshold 2. Mathematical variance has reached the absolute stability floor. Risk of loss is statistically minimized.`
+        rationale: `EMPORER Extreme Precision: Identified an 8-digit stability cluster [${last8.join(', ')}] consistently above threshold 2. Mathematical variance has reached the absolute stability floor.`
       };
     }
     // Under 7: All 8 digits must be < 7
@@ -53,14 +53,14 @@ export const SignalStrategies = {
       return {
         type: 'OVER 4',
         lastDigit,
-        rationale: `EMPORER Alpha Cluster: 8 consecutive digits [${last8.join(', ')}] exceeded threshold 4. Bullish momentum is locked in this high-fidelity tick bucket. High-probability entry confirmed.`
+        rationale: `EMPORER Alpha Cluster: 8 consecutive digits [${last8.join(', ')}] exceeded threshold 4. Bullish momentum is locked in this high-fidelity tick bucket.`
       };
     }
     if (last8.every(d => d < 5)) {
       return {
         type: 'UNDER 5',
         lastDigit,
-        rationale: `EMPORER Alpha Cluster: 8 consecutive digits [${last8.join(', ')}] remained below threshold 5. Bearish momentum is locked in this high-fidelity tick bucket. High-probability entry confirmed.`
+        rationale: `EMPORER Alpha Cluster: 8 consecutive digits [${last8.join(', ')}] remained below threshold 5. Bearish momentum is locked in this high-fidelity tick bucket.`
       };
     }
     return null;
@@ -82,14 +82,14 @@ export const SignalStrategies = {
       return {
         type: 'RISE',
         lastDigit,
-        rationale: `Ultra-Trend Confirmation: 10-tick continuous positive price delta [${last10.map(t => t.toFixed(2)).join(' → ')}]. Absolute bullish breakout detected via multi-point momentum oscillator.`
+        rationale: `Ultra-Trend Confirmation: 10-tick continuous positive price delta [${last10.map(t => t.toFixed(2)).join(' → ')}]. Absolute bullish breakout detected.`
       };
     }
     if (isFalling) {
       return {
         type: 'FALL',
         lastDigit,
-        rationale: `Ultra-Trend Confirmation: 10-tick continuous negative price delta [${last10.map(t => t.toFixed(2)).join(' → ')}]. Absolute bearish breakdown detected via multi-point momentum oscillator.`
+        rationale: `Ultra-Trend Confirmation: 10-tick continuous negative price delta [${last10.map(t => t.toFixed(2)).join(' → ')}]. Absolute bearish breakdown detected.`
       };
     }
     return null;
@@ -108,14 +108,14 @@ export const SignalStrategies = {
       return {
         type: 'EVEN',
         lastDigit,
-        rationale: `Extreme Parity Cluster: Detected 8 consecutive EVEN digits [${last8.join(', ')}]. Extreme statistical bias toward Even parity confirmed for current high-precision window.`
+        rationale: `Extreme Parity Cluster: Detected 8 consecutive EVEN digits [${last8.join(', ')}]. Extreme statistical bias toward Even parity confirmed.`
       };
     }
     if (last8.every(d => d % 2 !== 0)) {
       return {
         type: 'ODD',
         lastDigit,
-        rationale: `Extreme Parity Cluster: Detected 8 consecutive ODD digits [${last8.join(', ')}]. Extreme statistical bias toward Odd parity confirmed for current high-precision window.`
+        rationale: `Extreme Parity Cluster: Detected 8 consecutive ODD digits [${last8.join(', ')}]. Extreme statistical bias toward Odd parity confirmed.`
       };
     }
     return null;
@@ -149,7 +149,7 @@ export const SignalStrategies = {
       return {
         type: `MATCH ${bestDigit}`,
         lastDigit,
-        rationale: `Extreme Digit Gravitational Pull: Digit '${bestDigit}' appeared ${maxCount} times in the last 12 ticks [${last12.join(', ')}]. Cluster density has reached extreme threshold 6. High-probability Match detected.`
+        rationale: `Extreme Digit Gravitational Pull: Digit '${bestDigit}' appeared ${maxCount} times in the last 12 ticks [${last12.join(', ')}]. Cluster density has reached extreme threshold 6.`
       };
     }
     return null;

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { format } from 'date-fns';
-import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings, Play, Square, Database, Server } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, Activity, Zap, Bot, Target, Hash, ArrowUpDown, Clock, MessageSquare, RotateCcw, Wifi, WifiOff, Settings, Play, Square, Server } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -74,7 +74,6 @@ export default function EmporerDashboard() {
   const [timeframe, setTimeframe] = useState('5m');
   const [isEngineActive, setIsEngineActive] = useState(false);
   const [signals, setSignals] = useState<Signal[]>([]);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [liveTick, setLiveTick] = useState<Tick | null>(null);
   const [isOnline, setIsOnline] = useState(true);
@@ -90,7 +89,9 @@ export default function EmporerDashboard() {
 
   useEffect(() => {
     setMounted(true);
-    setSignals(SignalManager.getSignals());
+    // Only fetch signals that were successfully sent (synced)
+    const storedSignals = SignalManager.getSignals().filter(s => s.synced);
+    setSignals(storedSignals);
     
     if (typeof window !== 'undefined') {
       setBotToken(localStorage.getItem('tg_bot_token') || '');
@@ -98,21 +99,15 @@ export default function EmporerDashboard() {
       setTemplate(localStorage.getItem('tg_template') || DEFAULT_TEMPLATE);
       setIsOnline(navigator.onLine);
 
-      const handleOnline = () => {
-        setIsOnline(true);
-        handleSync();
-      };
+      const handleOnline = () => setIsOnline(true);
       const handleOffline = () => setIsOnline(false);
 
       window.addEventListener('online', handleOnline);
       window.addEventListener('offline', handleOffline);
 
-      const syncInterval = setInterval(handleSync, 15000);
-
       return () => {
         window.removeEventListener('online', handleOnline);
         window.removeEventListener('offline', handleOffline);
-        clearInterval(syncInterval);
       };
     }
   }, []);
@@ -156,7 +151,6 @@ export default function EmporerDashboard() {
         );
 
         if (newSignal) {
-          setSignals(SignalManager.getSignals());
           handleAutoDispatch(newSignal);
         }
 
@@ -184,7 +178,7 @@ export default function EmporerDashboard() {
         symbol: currentSymbolLabel,
         strategy: currentStrategyLabel,
         type: signal.type,
-        price: signal.lastDigit || "0", // Plain entry point digit
+        price: signal.lastDigit || "0",
         runs: signal.runs || 1,
         template,
         time: format(new Date(signal.timestamp), 'HH:mm:ss'),
@@ -193,26 +187,11 @@ export default function EmporerDashboard() {
 
       if (result.success) {
         SignalManager.markAsSynced(signal.id);
-        setSignals(SignalManager.getSignals());
+        // Refresh local view after successful sync
+        setSignals(SignalManager.getSignals().filter(s => s.synced));
       }
     } catch (e) {
-      console.error("EMPORER Auto-dispatch error", e);
-    }
-  };
-
-  const handleSync = async () => {
-    if (!navigator.onLine || isSyncing) return;
-    const currentSignals = SignalManager.getSignals();
-    const unsynced = currentSignals.filter(s => !s.synced);
-    if (unsynced.length === 0) return;
-
-    setIsSyncing(true);
-    try {
-      for (const signal of unsynced) {
-        await handleAutoDispatch(signal);
-      }
-    } finally {
-      setIsSyncing(false);
+      console.error("EMPORER Dispatch Error:", e);
     }
   };
 
@@ -263,7 +242,6 @@ export default function EmporerDashboard() {
     
     if (newState && botToken && chatId) {
       try {
-        // Send engine start confirmation to Telegram
         await dispatchSignalToTelegram({
           botToken: botToken.trim(),
           chatId: chatId.trim(),
@@ -279,7 +257,7 @@ export default function EmporerDashboard() {
 🎯 <b>Monitoring:</b> Multi-Market precision scan activated
 
 📝 <b>System Note:</b>
-EMPORER has synchronized with the global standard clock. The scanner is now identifying high-probability entries. One perfect signal will be dispatched exactly per interval mark (e.g., :00, :05, :10).
+EMPORER has synchronized with the global standard clock. One high-probability signal will be dispatched exactly at the next interval mark (e.g., :00, :05, :10).
 
 🔗 <a href="https://deriv.com/signup?sidc=808C8BC1-CA13-4AE4-83EE-0A6513B55687&utm_campaign=dynamicworks&utm_medium=affiliate&utm_source=CU31372"><b>Create a Deriv Trading Account</b></a>`,
           time: format(new Date(), 'HH:mm:ss'),
@@ -297,8 +275,6 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
         : "Automated monitoring suspended.",
     });
   };
-
-  const unsyncedCount = signals.filter(s => !s.synced).length;
 
   const previewContent = useMemo(() => {
     let content = template;
@@ -322,7 +298,7 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
             <Bot className="h-8 w-8 text-accent" />
             <span className="text-accent uppercase font-black tracking-tighter">EMPORER</span>
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm font-medium">Standard-Time Sync Extreme Precision Engine</p>
+          <p className="text-muted-foreground mt-1 text-sm font-medium">Extreme Precision Clock-Sync Scanner</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="px-3 py-1 bg-white flex gap-2 items-center shadow-sm text-[10px] font-bold text-primary border-primary/20">
@@ -371,19 +347,10 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
                     className="bg-slate-50 font-mono text-xs h-[250px] border-none shadow-inner p-4 focus-visible:ring-accent resize-none rounded-xl"
                   />
                 </div>
-
-                <div className="p-4 bg-accent/5 rounded-xl border border-accent/10">
-                  <p className="text-[10px] font-bold text-accent uppercase mb-2">Available Placeholders:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {['{market}', '{strategy}', '{signal}', '{entry}', '{time}', '{runs}', '{notes}'].map(tag => (
-                      <Badge key={tag} variant="secondary" className="text-[9px] font-mono py-0">{tag}</Badge>
-                    ))}
-                  </div>
-                </div>
               </div>
 
               <div className="space-y-4">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase">Telegram High-Fidelity Preview</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">Telegram Preview</label>
                 <div className="bg-[#1c2431] p-6 rounded-[2rem] shadow-2xl h-full border border-white/5 relative">
                   <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-emerald-400">
                     {previewContent}
@@ -392,18 +359,12 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
               </div>
             </div>
 
-            <div className="flex items-center justify-between mt-8 pt-6 border-t gap-4">
-              <Button variant="ghost" size="sm" onClick={() => setTemplate(DEFAULT_TEMPLATE)} className="text-[10px] font-bold uppercase">
-                <RotateCcw className="h-3 w-3 mr-2" />
-                Reset Template
+            <div className="flex items-center justify-end mt-8 pt-6 border-t gap-2">
+              <Button variant="outline" size="sm" onClick={handleTestBot} disabled={isTesting} className="text-[10px] font-bold uppercase">
+                {isTesting ? <RefreshCw className="h-3 w-3 animate-spin mr-2" /> : <MessageSquare className="h-3 w-3 mr-2" />}
+                Test Connection
               </Button>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={handleTestBot} disabled={isTesting} className="text-[10px] font-bold uppercase">
-                  {isTesting ? <RefreshCw className="h-3 w-3 animate-spin mr-2" /> : <MessageSquare className="h-3 w-3 mr-2" />}
-                  Test Bot Connection
-                </Button>
-                <Button onClick={handleSaveSettings} className="bg-accent hover:bg-accent/90 h-10 px-8 text-[10px] font-bold uppercase shadow-lg shadow-accent/20">Save Settings</Button>
-              </div>
+              <Button onClick={handleSaveSettings} className="bg-accent hover:bg-accent/90 h-10 px-8 text-[10px] font-bold uppercase shadow-lg shadow-accent/20">Save Settings</Button>
             </div>
           </CardContent>
         </Card>
@@ -431,20 +392,11 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
                 )}
               </Button>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="p-3 bg-slate-50 rounded-xl border border-border/50 text-center">
-                  <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Queue</p>
-                  <div className="flex items-center justify-center gap-1">
-                    <Database className="h-3 w-3 text-primary opacity-50" />
-                    <span className="text-sm font-black font-mono">{unsyncedCount}</span>
-                  </div>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-border/50 text-center">
-                  <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Standard Time</p>
-                  <div className="flex items-center justify-center gap-1">
-                    <Clock className="h-3 w-3 text-accent" />
-                    <span className="text-[10px] font-black uppercase tabular-nums">:{format(new Date(), 'mm')} Bucket</span>
-                  </div>
+              <div className="p-4 bg-slate-50 rounded-xl border border-border/50 text-center">
+                <p className="text-[9px] font-bold text-muted-foreground uppercase mb-1">Standard Interval</p>
+                <div className="flex items-center justify-center gap-1">
+                  <Clock className="h-3 w-3 text-accent" />
+                  <span className="text-sm font-black uppercase tabular-nums">:{format(new Date(), 'mm')} Bucket</span>
                 </div>
               </div>
 
@@ -473,7 +425,7 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase text-accent">Standard Interval</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase text-accent">Sync Interval</label>
                 <Select value={timeframe} onValueChange={setTimeframe} disabled={isEngineActive}>
                   <SelectTrigger className="h-10 text-xs font-bold border-accent/20 text-accent bg-white">
                     <SelectValue />
@@ -487,18 +439,10 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
           </Card>
 
           <Card className="shadow-lg border-none bg-primary text-primary-foreground overflow-hidden">
-            <CardContent className="pt-6">
-              <div className="flex flex-col items-center justify-center text-center space-y-2">
-                <p className="text-[10px] font-bold uppercase opacity-70 tracking-[0.2em]">Live Price</p>
-                <div className="text-4xl font-mono font-bold tracking-tighter tabular-nums">
-                  {liveTick ? liveTick.rawQuote : '---.---'}
-                </div>
-                <div className="mt-4 w-full pt-4 border-t border-white/10 flex justify-between items-center">
-                  <span className="text-[10px] font-bold opacity-60 uppercase">Plain Entry Digit:</span>
-                  <span className="text-4xl font-bold text-accent font-mono underline underline-offset-4 decoration-accent/30">
-                    {lastDigit || '-'}
-                  </span>
-                </div>
+            <CardContent className="pt-6 text-center">
+              <p className="text-[10px] font-bold uppercase opacity-70 tracking-[0.2em] mb-2">Live Digit Node</p>
+              <div className="text-6xl font-black text-accent font-mono underline underline-offset-8 decoration-accent/30">
+                {lastDigit || '-'}
               </div>
             </CardContent>
           </Card>
@@ -507,20 +451,20 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
         <Card className="lg:col-span-3 shadow-sm border-none ring-1 ring-border/50 bg-white">
           <CardHeader className="flex flex-row items-center justify-between pb-4 border-b">
             <div>
-              <CardTitle className="text-xl font-bold flex items-center gap-2">
-                {symbol === 'ALL_MARKETS' ? 'EMPORER Multi-Market Feed' : VOLATILITY_INDICES.find(i => i.value === symbol)?.label}
-                <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700">{timeframe} INTERVAL</Badge>
+              <CardTitle className="text-xl font-black flex items-center gap-2 uppercase tracking-tighter">
+                EMPORER Dispatched Feed
+                <Badge variant="secondary" className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700">SENT ONLY</Badge>
               </CardTitle>
               <CardDescription className="text-xs uppercase font-bold text-muted-foreground/60 tracking-widest">
-                Dispatched Strategy History (Extreme Precision Filter)
+                Real-time confirmed market signals
               </CardDescription>
             </div>
             <div className="text-right">
-              <div className="text-2xl font-mono font-bold text-primary tabular-nums">
+              <div className="text-xl font-mono font-bold text-primary tabular-nums">
                 {liveTick?.rawQuote || '---'}
               </div>
               <div className="text-[10px] font-bold text-emerald-600 uppercase flex items-center justify-end gap-1">
-                <Wifi className="h-3 w-3" /> STREAM ACTIVE
+                <Wifi className="h-3 w-3" /> FEED ACTIVE
               </div>
             </div>
           </CardHeader>
@@ -539,18 +483,17 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
                       <div className="flex-1">
                         <div className="font-black text-sm flex items-center gap-2 text-primary">
                           {signal.type} @ {VOLATILITY_INDICES.find(v => v.value === signal.symbol)?.label || signal.symbol}
-                          <Badge className="text-[8px] h-4 bg-primary/10 text-primary border-none uppercase">DISPATCHED</Badge>
+                          <Badge className="text-[8px] h-4 bg-emerald-50 text-emerald-700 border-none uppercase">DISPATCHED</Badge>
                         </div>
                         <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mt-0.5 line-clamp-1">
-                          {format(new Date(signal.timestamp), 'HH:mm:ss')} | Entry: {signal.lastDigit} | Runs: {signal.runs} | {signal.rationale}
+                          SENT AT {format(new Date(signal.timestamp), 'HH:mm:ss')} | Entry: {signal.lastDigit} | {signal.rationale}
                         </div>
                       </div>
                     </div>
                     <div className="text-right ml-4">
-                      <div className="font-mono font-black text-lg text-primary">{signal.lastDigit}</div>
-                      <div className={cn("text-[9px] font-bold uppercase tracking-widest flex items-center justify-end gap-1", signal.synced ? "text-emerald-600" : "text-amber-600")}>
-                        {signal.synced ? <Zap className="h-2 w-2" /> : <Clock className="h-2 w-2" />}
-                        {signal.synced ? 'SENT TO TELEGRAM' : 'QUEUED'}
+                      <div className="font-mono font-black text-xl text-primary">{signal.lastDigit}</div>
+                      <div className="text-[9px] font-bold uppercase tracking-widest text-emerald-600 flex items-center justify-end gap-1">
+                        <Zap className="h-2 w-2" /> SUCCESSFUL
                       </div>
                     </div>
                   </div>
@@ -560,10 +503,10 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
                   <Activity className="h-12 w-12 text-accent animate-pulse" />
                   <div className="text-center">
                     <p className="text-[12px] font-black uppercase tracking-widest text-primary">
-                      EMPORER Scanner Syncing...
+                      Waiting for Standard Clock Bucket...
                     </p>
                     <p className="text-[10px] font-medium">
-                      Waiting for standard clock interval (:{timeframe} bucket).
+                      Signals will appear here immediately upon successful Telegram dispatch.
                     </p>
                   </div>
                 </div>
@@ -576,20 +519,20 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
         <Card className="shadow-sm border-none ring-1 ring-border/50 bg-white">
           <CardHeader>
-            <CardTitle className="text-lg">Engine Metrics</CardTitle>
+            <CardTitle className="text-lg">Session Analytics</CardTitle>
             <CardDescription className="text-xs font-bold uppercase tracking-widest opacity-60">High-Fidelity Automated Guard</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 rounded-2xl bg-slate-50 border border-border/50">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Session Total</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Total Sent</p>
                 <p className="text-3xl font-mono font-bold text-primary">{signals.length}</p>
               </div>
               <div className="p-4 rounded-2xl bg-slate-50 border border-border/50">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Clock Sync</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Precision Status</p>
                 <div className="text-lg font-bold flex items-center gap-2">
                   <div className={cn("w-2 h-2 rounded-full", isOnline ? "bg-emerald-500" : "bg-rose-500")} />
-                  {isOnline ? 'HEALTHY' : 'BUFFERING'}
+                  {isOnline ? '8-STREAK ACTIVE' : 'BUFFERING'}
                 </div>
                 <p className="text-[9px] text-muted-foreground mt-1 font-bold uppercase">:{format(new Date(), 'mm')} standard bucket</p>
               </div>
@@ -600,9 +543,9 @@ EMPORER has synchronized with the global standard clock. The scanner is now iden
         <Card className="shadow-sm border-none ring-1 ring-border/50 bg-accent text-accent-foreground overflow-hidden relative">
           <Activity className="absolute h-48 w-48 text-white/5 -right-8 -bottom-8" />
           <CardContent className="pt-8 text-center h-full flex flex-col justify-center">
-            <p className="text-[10px] font-bold uppercase opacity-70 tracking-widest">Precision Rating</p>
+            <p className="text-[10px] font-bold uppercase opacity-70 tracking-widest">Stability Rating</p>
             <div className="text-5xl font-mono font-bold tracking-tighter my-2">98.4%</div>
-            <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">EMPORER Clock-Sync Active</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Extreme 8-Digit Confirmation Streak Enabled</p>
           </CardContent>
         </Card>
       </section>
