@@ -36,7 +36,6 @@ export const SignalManager = {
       id: Math.random().toString(36).substring(2, 9),
       timestamp: new Date().toISOString(),
       synced: false,
-      // EMPORER Rule: Randomized runs (1-3) for risk distribution
       runs: Math.floor(Math.random() * 3) + 1,
     };
     
@@ -134,14 +133,10 @@ export const SignalManager = {
     digitHistory[symbol].push(dVal);
     tickHistory[symbol].push(currentPrice);
     
-    // Maintain deep history for 8-digit stability streaks
     if (digitHistory[symbol].length > 40) digitHistory[symbol].shift();
     if (tickHistory[symbol].length > 40) tickHistory[symbol].shift();
 
-    // EMPORER Rule: Only process during standard clock intervals (:00, :05, :10...)
     if (!SignalManager.isTargetInterval(intervalMinutes)) return null;
-    
-    // EMPORER Rule: Never duplicate a signal for the same bucket
     if (SignalManager.hasDispatchedForCurrentBucket()) return null;
     
     let strategyResult = null;
