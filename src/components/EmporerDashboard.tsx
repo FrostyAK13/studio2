@@ -17,6 +17,8 @@ import { dispatchSignalToTelegram } from '@/ai/flows/dispatch-signal';
 
 const VOLATILITY_INDICES = [
   { value: 'ALL_MARKETS', label: 'All Volatility Indices (Scanner)' },
+  { value: 'ALL_PLAIN', label: 'All Plain Indices (Standard)' },
+  { value: 'ALL_1S', label: 'All (1s) Indices (Fast Scan)' },
   { value: 'R_10', label: 'Volatility 10 Index' },
   { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
   { value: 'R_25', label: 'Volatility 25 Index' },
@@ -122,16 +124,24 @@ export default function EmporerDashboard() {
       return;
     }
 
-    const isScannerMode = symbol === 'ALL_MARKETS';
-    const targets = isScannerMode
-      ? VOLATILITY_INDICES.filter(i => i.value !== 'ALL_MARKETS').map(i => i.value)
-      : [symbol];
+    let targets: string[] = [];
+    const allIndices = VOLATILITY_INDICES.filter(i => !['ALL_MARKETS', 'ALL_PLAIN', 'ALL_1S'].includes(i.value));
+
+    if (symbol === 'ALL_MARKETS') {
+      targets = allIndices.map(i => i.value);
+    } else if (symbol === 'ALL_PLAIN') {
+      targets = allIndices.filter(i => !i.label.includes('(1s)')).map(i => i.value);
+    } else if (symbol === 'ALL_1S') {
+      targets = allIndices.filter(i => i.label.includes('(1s)')).map(i => i.value);
+    } else {
+      targets = [symbol];
+    }
 
     const unsubscribers: (() => void)[] = [];
 
     targets.forEach(s => {
       const unsubscribe = derivWs.subscribe(s, (tick) => {
-        if (!isScannerMode || s === targets[0]) {
+        if (s === targets[0]) {
            setLiveTick(tick);
         }
         
@@ -145,7 +155,7 @@ export default function EmporerDashboard() {
           strategy,
           tick.rawQuote,
           timeframe,
-          isScannerMode
+          targets.length > 1
         );
 
         if (newSignal) {
@@ -407,7 +417,7 @@ EMPORER has synchronized with the global standard clock. One high-probability si
               </div>
 
               <div className="space-y-1.5 pt-2">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase">Target Market</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">Target Market Filter</label>
                 <Select value={symbol} onValueChange={setSymbol} disabled={isEngineActive}>
                   <SelectTrigger className="h-10 text-xs font-medium bg-white">
                     <SelectValue />

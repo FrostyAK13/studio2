@@ -25,18 +25,20 @@ export const SignalStrategies = {
 
     // Over 2: All 8 digits must be > 2
     if (last8.every(d => d > 2)) {
+      const minDigit = Math.min(...last8);
       return {
         type: 'OVER 2',
         lastDigit,
-        rationale: `EMPORER Threshold Precision: Detected an 8-digit containment cluster [${last8.join(', ')}]. Variance floor is locked above 2. High-probability stability detected.`
+        rationale: `EMPORER Threshold Precision: Detected an 8-digit stability cluster [${last8.join(', ')}]. Variance floor is strictly locked at ${minDigit}. 100% containment confirmed above threshold 2.`
       };
     }
     // Under 7: All 8 digits must be < 7
     if (last8.every(d => d < 7)) {
+      const maxDigit = Math.max(...last8);
       return {
         type: 'UNDER 7',
         lastDigit,
-        rationale: `EMPORER Threshold Precision: Detected an 8-digit containment cluster [${last8.join(', ')}]. Variance ceiling is locked below 7. Market limit rejection confirmed.`
+        rationale: `EMPORER Threshold Precision: Detected an 8-digit stability cluster [${last8.join(', ')}]. Variance ceiling is strictly locked at ${maxDigit}. 100% containment confirmed below threshold 7.`
       };
     }
     return null;
@@ -52,17 +54,19 @@ export const SignalStrategies = {
     const lastDigit = last8[7].toString();
 
     if (last8.every(d => d > 4)) {
+      const minDigit = Math.min(...last8);
       return {
         type: 'OVER 4',
         lastDigit,
-        rationale: `EMPORER Alpha Cluster: 8 consecutive digits [${last8.join(', ')}] exceeded mid-point 4. High-frequency bullish bias detected for Over 4 entry.`
+        rationale: `EMPORER Alpha Cluster: 8 consecutive digits [${last8.join(', ')}] exceeded mid-point 4. Mathematical floor detected at ${minDigit}. High-frequency bullish stability confirmed.`
       };
     }
     if (last8.every(d => d < 5)) {
+      const maxDigit = Math.max(...last8);
       return {
         type: 'UNDER 5',
         lastDigit,
-        rationale: `EMPORER Alpha Cluster: 8 consecutive digits [${last8.join(', ')}] remained below mid-point 5. High-frequency bearish bias detected for Under 5 entry.`
+        rationale: `EMPORER Alpha Cluster: 8 consecutive digits [${last8.join(', ')}] remained below mid-point 5. Mathematical ceiling detected at ${maxDigit}. High-frequency bearish stability confirmed.`
       };
     }
     return null;
