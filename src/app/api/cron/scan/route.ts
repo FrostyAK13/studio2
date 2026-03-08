@@ -10,10 +10,15 @@ import { format } from 'date-fns';
 
 const VOLATILITY_INDICES = [
   { value: 'R_10', label: 'Volatility 10 Index' },
+  { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
   { value: 'R_25', label: 'Volatility 25 Index' },
+  { value: '1HZ25V', label: 'Volatility 25 (1s) Index' },
   { value: 'R_50', label: 'Volatility 50 Index' },
+  { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
   { value: 'R_75', label: 'Volatility 75 Index' },
+  { value: '1HZ75V', label: 'Volatility 75 (1s) Index' },
   { value: 'R_100', label: 'Volatility 100 Index' },
+  { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
 ];
 
 export async function GET(req: NextRequest) {
@@ -52,11 +57,11 @@ export async function GET(req: NextRequest) {
           symbol: market.label,
           strategy: "Over / Under (Extreme)",
           type: signal.type,
-          price: signal.lastDigit, // Plain digit entry point
+          price: signal.lastDigit,
           template,
-          time: format(new Date(), 'HH:mm:ss'), // Correctly formatted dispatch time
+          time: format(new Date(), 'HH:mm:ss'),
           rationale: signal.rationale,
-          runs: Math.floor(Math.random() * 3) + 1 // Randomized 1-3 runs
+          runs: Math.floor(Math.random() * 3) + 1
         });
 
         results.push({ market: market.value, signal: signal.type, sent: dispatchResult.success });

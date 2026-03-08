@@ -18,18 +18,18 @@ import { dispatchSignalToTelegram } from '@/ai/flows/dispatch-signal';
 const VOLATILITY_INDICES = [
   { value: 'ALL_MARKETS', label: 'All Volatility Indices (Scanner)' },
   { value: 'R_10', label: 'Volatility 10 Index' },
-  { value: 'R_15', label: 'Volatility 15 (1s) Index' },
-  { value: 'R_25', label: 'Volatility 25 Index' },
-  { value: 'R_30', label: 'Volatility 30 (1s) Index' },
-  { value: 'R_50', label: 'Volatility 50 Index' },
-  { value: 'R_75', label: 'Volatility 75 Index' },
-  { value: 'R_90', label: 'Volatility 90 (1s) Index' },
-  { value: 'R_100', label: 'Volatility 100 Index' },
   { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
+  { value: 'R_25', label: 'Volatility 25 Index' },
   { value: '1HZ25V', label: 'Volatility 25 (1s) Index' },
+  { value: 'R_50', label: 'Volatility 50 Index' },
   { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
+  { value: 'R_75', label: 'Volatility 75 Index' },
   { value: '1HZ75V', label: 'Volatility 75 (1s) Index' },
+  { value: 'R_100', label: 'Volatility 100 Index' },
   { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
+  { value: 'R_15', label: 'Volatility 15 (1s) Index' },
+  { value: 'R_30', label: 'Volatility 30 (1s) Index' },
+  { value: 'R_90', label: 'Volatility 90 (1s) Index' },
 ];
 
 const STRATEGIES = [
@@ -89,7 +89,6 @@ export default function EmporerDashboard() {
 
   useEffect(() => {
     setMounted(true);
-    // Initial load: Only show signals that were successfully sent
     setSignals(SignalManager.getSignals());
     
     if (typeof window !== 'undefined') {
@@ -186,7 +185,6 @@ export default function EmporerDashboard() {
 
       if (result.success) {
         SignalManager.markAsSynced(signal.id);
-        // Refresh feed with only sent signals
         setSignals(SignalManager.getSignals());
       }
     } catch (e) {

@@ -16,7 +16,7 @@ export const SignalStrategies = {
   /**
    * Over / Under Strategy (Threshold 2/7): 
    * Extreme Precision: Requires an 8-digit confirmation streak for absolute stability.
-   * Entry Point: The final stabilizing digit of the sequence.
+   * Sharpened Logic: Confirms containment floor/ceiling across the entire sequence.
    */
   evaluateOverUnder: (digits: number[]): StrategyResult | null => {
     if (digits.length < 8) return null;
@@ -28,7 +28,7 @@ export const SignalStrategies = {
       return {
         type: 'OVER 2',
         lastDigit,
-        rationale: `EMPORER Threshold Analysis: Detected an 8-digit stability streak [${last8.join(', ')}] consistently above floor 2. Variance has normalized at a 98.4% confidence level.`
+        rationale: `EMPORER Threshold Precision: Detected an 8-digit containment cluster [${last8.join(', ')}]. Variance floor is locked above 2. High-probability stability detected.`
       };
     }
     // Under 7: All 8 digits must be < 7
@@ -36,7 +36,7 @@ export const SignalStrategies = {
       return {
         type: 'UNDER 7',
         lastDigit,
-        rationale: `EMPORER Threshold Analysis: Detected an 8-digit stability streak [${last8.join(', ')}] consistently below ceiling 7. Market upper-limit rejection confirmed.`
+        rationale: `EMPORER Threshold Precision: Detected an 8-digit containment cluster [${last8.join(', ')}]. Variance ceiling is locked below 7. Market limit rejection confirmed.`
       };
     }
     return null;
@@ -45,7 +45,6 @@ export const SignalStrategies = {
   /**
    * Advanced Over / Under Strategy (Threshold 4/5):
    * Extreme Precision: Requires an 8-digit confirmation streak.
-   * Entry Point: The final confirmation digit.
    */
   evaluateOverUnderAdvanced: (digits: number[]): StrategyResult | null => {
     if (digits.length < 8) return null;
@@ -56,14 +55,14 @@ export const SignalStrategies = {
       return {
         type: 'OVER 4',
         lastDigit,
-        rationale: `EMPORER Alpha Cluster: 8 consecutive digits [${last8.join(', ')}] exceeded mid-point 4. High-frequency bullish bias detected in current tick bucket.`
+        rationale: `EMPORER Alpha Cluster: 8 consecutive digits [${last8.join(', ')}] exceeded mid-point 4. High-frequency bullish bias detected for Over 4 entry.`
       };
     }
     if (last8.every(d => d < 5)) {
       return {
         type: 'UNDER 5',
         lastDigit,
-        rationale: `EMPORER Alpha Cluster: 8 consecutive digits [${last8.join(', ')}] remained below mid-point 5. High-frequency bearish bias detected in current tick bucket.`
+        rationale: `EMPORER Alpha Cluster: 8 consecutive digits [${last8.join(', ')}] remained below mid-point 5. High-frequency bearish bias detected for Under 5 entry.`
       };
     }
     return null;
@@ -72,7 +71,6 @@ export const SignalStrategies = {
   /**
    * Rise / Fall Strategy (Momentum Analysis):
    * Extreme Precision: Requires a 10-tick continuous momentum trend.
-   * Entry Point: The most recent tick digit that finalized the trend.
    */
   evaluateRiseFall: (ticks: number[], digits: number[]): StrategyResult | null => {
     if (ticks.length < 10) return null;
@@ -102,7 +100,6 @@ export const SignalStrategies = {
   /**
    * Even / Odd Strategy (Parity Flow Analysis):
    * Extreme Precision: Requires an 8-digit parity streak.
-   * Entry Point: The specific parity confirming digit.
    */
   evaluateEvenOdd: (digits: number[]): StrategyResult | null => {
     if (digits.length < 8) return null;
@@ -132,7 +129,6 @@ export const SignalStrategies = {
   /**
    * Matches Strategy (Gravitational Cluster Analysis):
    * Extreme Precision: Requires a digit to appear 6+ times in the last 12 ticks.
-   * Entry Point: The specific digit that is "matching" the frequency cluster.
    */
   evaluateMatches: (digits: number[]): StrategyResult | null => {
     if (digits.length < 12) return null;
@@ -156,7 +152,7 @@ export const SignalStrategies = {
     if (bestDigit !== -1 && maxCount >= 6) {
       return {
         type: `MATCH ${bestDigit}`,
-        lastDigit: bestDigit.toString(), // The entry point IS the matching digit
+        lastDigit: bestDigit.toString(),
         rationale: `EMPORER Digit Gravity: Number '${bestDigit}' appeared ${maxCount} times in the last 12 ticks [${last12.join(', ')}]. High-density cluster detected for Match entry.`
       };
     }
